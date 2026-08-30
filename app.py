@@ -541,19 +541,25 @@ else:
 
 # الفوتر الرئيسي النهائي
 st.markdown("---")
-st.markdown("### Abdelwahab Garments")
-st.write(
-    "نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام."
+
+# استخدام حاوية ب اتجاه عربي صحيح لتجنب قلب الروابط
+st.markdown(
+    """
+    <div style="direction: rtl; text-align: right; font-family: sans-serif;">
+        <h3 style="color: #d4af37; margin-bottom: 5px;">Abdelwahab Garments</h3>
+        <p style="color: #a0a6b8; font-size: 14px; line-height: 1.6;">
+            نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام.
+        </p>
+        <div style="margin: 15px 0; display: flex; gap: 20px; font-size: 14px;">
+            <a href="mailto:abdelwahab.garments@gmail.com" style="color: #d4af37; text-decoration: none;">راسلنا بريدياً</a>
+            <a href="https://www.facebook.com/abdelwahab.garments" target="_blank" style="color: #d4af37; text-decoration: none;">صفحة الفيسبوك</a>
+            <a href="https://wa.me/201002002202" target="_blank" style="color: #d4af37; text-decoration: none;">تواصل واتساب</a>
+        </div>
+        <p style="color: #636a79; font-size: 12px; margin-top: 20px;">
+            جميع الحقوق محفوظة © 2026 Abdelwahab Garments - محمد عبد الوهاب
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
-col_f1, col_f2, col_f3 = st.columns(3)
-with col_f1:
-    st.markdown("[راسلنا بريدياً](mailto:abdelwahab.garments@gmail.com)")
-with col_f2:
-    st.markdown("[صفحة الفيسبوك](https://www.facebook.com/abdelwahab.garments)")
-with col_f3:
-    st.markdown("[تواصل واتساب](https://wa.me/201002002202)")
-
-st.caption(
-    "جميع الحقوق محفوظة © 2026 Abdelwahab Garments - محمد عبد الوهاب"
-)
