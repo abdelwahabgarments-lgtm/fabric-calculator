@@ -12,32 +12,58 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# 2. التنسيق البصري والتصميم (CSS Custom Theme)
+# 2. التنسيق البصري وفرض محاذاة اللغة العربية لليمين (RTL)
 st.markdown(
     """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
     
-    html, body, [class*="css"] {
+    /* فرض الاتجاه من اليمين للشمال لجميع عناصر الصفحة */
+    html, body, [class*="css"], .stApp, div[data-testid="stForm"] {
         font-family: 'Cairo', sans-serif !important;
-        direction: rtl;
-        text-align: right;
+        direction: rtl !important;
+        text-align: right !important;
         background-color: #0d0e11 !important;
         color: #e0e0e0;
     }
 
-    .stApp {
-        background-color: #0d0e11;
+    /* محاذاة جميع المدخلات والعناوين إلى اليمين */
+    .stTextInput label, .stNumberInput label, .stSelectbox label, .stCheckbox label, div[role="radiogroup"] label {
+        text-align: right !important;
+        width: 100% !important;
+        display: block !important;
+        color: #ffffff !important;
+    }
+
+    .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
+        direction: rtl !important;
+        text-align: right !important;
+        background-color: #1c1f28 !important;
+        color: #ffffff !important;
+        border: 1px solid #2e3444 !important;
+        border-radius: 8px !important;
+    }
+
+    .stTextInput input:focus, .stNumberInput input:focus {
+        border-color: #d4af37 !important;
+        box-shadow: 0 0 6px rgba(212, 175, 55, 0.4) !important;
+    }
+
+    /* أزرار وقوائم الاختيار */
+    div[data-baseweb="select"] > div {
+        text-align: right !important;
+        direction: rtl !important;
     }
 
     h1, h2, h3, h4, h5, h6 {
         font-family: 'Cairo', sans-serif !important;
         color: #ffffff !important;
         font-weight: 700;
+        text-align: right !important;
     }
 
     .brand-header {
-        text-align: center;
+        text-align: center !important;
         padding: 20px 0 30px 0;
         border-bottom: 1px solid #1f232d;
         margin-bottom: 30px;
@@ -81,24 +107,13 @@ st.markdown(
         transform: translateY(-2px);
     }
 
-    .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
-        background-color: #1c1f28 !important;
-        color: #ffffff !important;
-        border: 1px solid #2e3444 !important;
-        border-radius: 8px !important;
-    }
-
-    .stTextInput input:focus, .stNumberInput input:focus {
-        border-color: #d4af37 !important;
-        box-shadow: 0 0 6px rgba(212, 175, 55, 0.4) !important;
-    }
-
     .result-card {
         background-color: #1a1d26;
         border-right: 4px solid #d4af37;
         padding: 18px;
         border-radius: 8px;
         margin-bottom: 14px;
+        text-align: right !important;
     }
     .result-value {
         font-size: 22px;
@@ -116,6 +131,7 @@ st.markdown(
         padding: 35px 25px 20px 25px;
         margin-top: 50px;
         border-radius: 12px 12px 0 0;
+        text-align: right !important;
     }
 
     .footer-brand {
@@ -161,7 +177,7 @@ st.markdown(
     }
 
     .copyright {
-        text-align: center;
+        text-align: center !important;
         font-size: 13px;
         color: #636a79;
         margin-top: 25px;
@@ -174,10 +190,13 @@ st.markdown(
 )
 
 
-# 3. إعداد الاتصال بـ Google Sheets
+# 3. إعداد الاتصال بـ Google Sheets مع التحقق من Secrets
 @st.cache_resource
 def get_google_sheet():
     try:
+        if "gcp_service_account" not in st.secrets:
+            return None, "مفاتيح GCP متغيرة أو غير موجودة في Secrets."
+
         scopes = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive",
@@ -186,15 +205,16 @@ def get_google_sheet():
             st.secrets["gcp_service_account"], scopes=scopes
         )
         client = gspread.authorize(creds)
-        return client.open("حاسبة استهلاك الأقمشة - البيانات")
+        spreadsheet = client.open("حاسبة استهلاك الأقمشة - البيانات")
+        return spreadsheet, None
     except Exception as e:
-        return None
+        return None, str(e)
 
 
 # تسجيل الزيارات التلقائي
 def log_page_visit():
     if "visited_logged" not in st.session_state:
-        spreadsheet = get_google_sheet()
+        spreadsheet, err = get_google_sheet()
         if spreadsheet:
             try:
                 sheet = spreadsheet.worksheet("سجل_الزيارات")
@@ -221,7 +241,7 @@ st.markdown(
 if "user_registered" not in st.session_state:
     st.session_state["user_registered"] = False
 
-# 5. القسم الأول: نموذج تسجيل البيانات المطور والمنظم
+# 5. القسم الأول: نموذج تسجيل البيانات
 if not st.session_state["user_registered"]:
     st.markdown('<div class="custom-card">', unsafe_allow_html=True)
     st.subheader("بيانات التسجيل لتفعيل الحاسبة")
@@ -261,7 +281,6 @@ if not st.session_state["user_registered"]:
             email_regex = r"^[\w\.-]+@[\w\.-]+\.\w+$"
             clean_phone = re.sub(r"\D", "", phone)
 
-            # التحقق التام من اكتمال وصحة البيانات
             if (
                 name.strip() == ""
                 or phone.strip() == ""
@@ -278,7 +297,7 @@ if not st.session_state["user_registered"]:
             elif len(clean_phone) < 10:
                 st.error("يرجى إدخال رقم واتساب صحيح لا يقل عن 10 أرقام.")
             else:
-                spreadsheet = get_google_sheet()
+                spreadsheet, err = get_google_sheet()
                 if spreadsheet:
                     try:
                         sheet = spreadsheet.worksheet("العملاء")
@@ -300,16 +319,16 @@ if not st.session_state["user_registered"]:
                         st.rerun()
                     except Exception as e:
                         st.error(
-                            "حدث خطأ أثناء حفظ البيانات في الشيت. يرجى التأكد من اسم تبويب 'العملاء' وصلاحيات الشيت."
+                            f"حدث خطأ أثناء حفظ البيانات: {e}. يرجى التأكد من اسم تبويب 'العملاء'."
                         )
                 else:
                     st.error(
-                        "تعذر الاتصال بقاعدة البيانات. يرجى التحقق من إعدادات Secrets."
+                        f"تعذر الاتصال بقاعدة البيانات. التفاصيل: {err}"
                     )
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 6. القسم الثاني: الحاسبة التشغيلية المعيارية
+# 6. القسم الثاني: الحاسبة التشغيلية
 else:
     st.markdown('<div class="custom-card">', unsafe_allow_html=True)
     st.subheader("معطيات أمر التصنيع واستهلاك الأقمشة")
@@ -390,7 +409,7 @@ else:
     total_cost = total_fabric_needed * price_per_unit
     cost_per_garment = total_cost / order_qty if order_qty > 0 else 0.0
 
-    # عرض النتائج التشغيلية
+    # عرض النتائج
     st.markdown('<div class="custom-card">', unsafe_allow_html=True)
     st.subheader("نتائج التقدير والاحتياجات التشغيلية")
 
@@ -436,7 +455,7 @@ else:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 7. الفوتر الرئيسي
+# 7. الفوتر الرئيسي المحدث
 st.markdown(
     """
     <div class="footer-container">
@@ -444,20 +463,28 @@ st.markdown(
         <div class="footer-text">
             نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام. خبرة ميدانية فى صناعة الملابس الجاهزة منذ عام 2011، متخصص فى التخطيط والمتابعة وإدارة طلبات التصنيع.
         </div>
+        
+        <div style="margin-bottom: 20px; font-size: 14px; color: #d4af37; display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+            <span>البريد الإلكتروني: <a href="mailto:abdelwahab.garments@gmail.com" style="color: #ffffff; text-decoration: none;">abdelwahab.garments@gmail.com</a></span>
+        </div>
+
         <div class="social-row">
-            <a href="https://abdelwahabgarments.com" target="_blank" class="social-btn" title="الموقع الرسمي">
+            <a href="mailto:abdelwahab.garments@gmail.com" class="social-btn" title="إرسال بريد إلكتروني">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="2" y1="12" x2="22" y2="12"></line>
-                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                    <polyline points="22,6 12,13 2,6"></polyline>
                 </svg>
             </a>
-            <a href="https://facebook.com" target="_blank" class="social-btn" title="فيسبوك">
+            <a href="https://www.facebook.com/abdelwahab.garments" target="_blank" class="social-btn" title="صفحة الفيسبوك">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                 </svg>
             </a>
-            <a href="https://wa.me/" target="_blank" class="social-btn" title="واتساب">
+            <a href="https://wa.me/201002002202" target="_blank" class="social-btn" title="التواصل عبر الواتساب">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
                 </svg>
