@@ -542,22 +542,26 @@ else:
 # الفوتر الرئيسي النهائي
 st.markdown("---")
 
-st.markdown(
-    """
-    <div style="width: 100%; text-align: center; direction: rtl; font-family: sans-serif; padding: 20px 0;">
-        <h3 style="color: #d4af37; margin: 0 0 10px 0; text-align: center; display: block;">Abdelwahab Garments</h3>
-        <p style="color: #a0a6b8; font-size: 14px; line-height: 1.6; margin: 0 auto 15px auto; max-width: 600px; text-align: center;">
-            نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام.
-        </p>
-        <div style="margin: 15px auto; text-align: center;">
-            <a href="mailto:abdelwahab.garments@gmail.com" style="color: #d4af37; text-decoration: none; margin: 0 15px; font-size: 14px;">راسلنا بريدياً</a>
-            <a href="https://www.facebook.com/abdelwahab.garments" target="_blank" style="color: #d4af37; text-decoration: none; margin: 0 15px; font-size: 14px;">صفحة الفيسبوك</a>
-            <a href="https://wa.me/201002002202" target="_blank" style="color: #d4af37; text-decoration: none; margin: 0 15px; font-size: 14px;">تواصل واتساب</a>
-        </div>
-        <p style="color: #636a79; font-size: 12px; margin-top: 20px; text-align: center;">
-            جميع الحقوق محفوظة © 2026 Abdelwahab Garments - محمد عبد الوهاب
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+# استخدام أعمدة لعمل توسيط إجباري في نص الصفحة
+_, center_col, _ = st.columns([1, 3, 1])
+
+with center_col:
+    st.markdown(
+        "<h3 style='color: #d4af37; text-align: center; margin-bottom: 5px;'>Abdelwahab Garments</h3>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<p style='color: #a0a6b8; text-align: center; font-size: 14px;'>نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام.</p>",
+        unsafe_allow_html=True,
+    )
+
+    # الروابط جنب بعض في السنتر
+    st.markdown(
+        "<div style='text-align: center; margin: 15px 0;'><a href='mailto:abdelwahab.garments@gmail.com' style='color: #d4af37; text-decoration: none; margin: 0 10px;'>راسلنا بريدياً</a> | <a href='https://www.facebook.com/abdelwahab.garments' target='_blank' style='color: #d4af37; text-decoration: none; margin: 0 10px;'>صفحة الفيسبوك</a> | <a href='https://wa.me/201002002202' target='_blank' style='color: #d4af37; text-decoration: none; margin: 0 10px;'>تواصل واتساب</a></div>",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        "<p style='color: #636a79; text-align: center; font-size: 12px; margin-top: 15px;'>جميع الحقوق محفوظة © 2026 Abdelwahab Garments - محمد عبد الوهاب</p>",
+        unsafe_allow_html=True,
+    )
