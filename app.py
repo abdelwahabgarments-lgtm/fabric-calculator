@@ -1,4 +1,5 @@
 import datetime
+import re
 import gspread
 from google.oauth2.service_account import Credentials
 import streamlit as st
@@ -29,14 +30,12 @@ st.markdown(
         background-color: #0d0e11;
     }
 
-    /* العناوين الرئيسيّة والفرعيّة */
     h1, h2, h3, h4, h5, h6 {
         font-family: 'Cairo', sans-serif !important;
         color: #ffffff !important;
         font-weight: 700;
     }
 
-    /* الهيدر العلوي */
     .brand-header {
         text-align: center;
         padding: 20px 0 30px 0;
@@ -55,7 +54,6 @@ st.markdown(
         color: #9aa0a6;
     }
 
-    /* الكروت والحاويات */
     .custom-card {
         background-color: #15171e;
         border: 1px solid #242834;
@@ -65,7 +63,6 @@ st.markdown(
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     }
 
-    /* الأزرار الرئيسية */
     .stButton > button {
         background: linear-gradient(135deg, #d4af37 0%, #aa820a 100%) !important;
         color: #0d0e11 !important;
@@ -84,7 +81,6 @@ st.markdown(
         transform: translateY(-2px);
     }
 
-    /* حقول الإدخال */
     .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
         background-color: #1c1f28 !important;
         color: #ffffff !important;
@@ -97,7 +93,6 @@ st.markdown(
         box-shadow: 0 0 6px rgba(212, 175, 55, 0.4) !important;
     }
 
-    /* كروت النتائج والمؤشرات */
     .result-card {
         background-color: #1a1d26;
         border-right: 4px solid #d4af37;
@@ -115,7 +110,6 @@ st.markdown(
         color: #a0a6b5;
     }
 
-    /* الفوتر السفلية */
     .footer-container {
         background-color: #12141a;
         border-top: 1px solid #222632;
@@ -180,7 +174,7 @@ st.markdown(
 )
 
 
-# 3. إعداد الاتصال مع Google Sheets
+# 3. إعداد الاتصال بـ Google Sheets
 @st.cache_resource
 def get_google_sheet():
     try:
@@ -193,7 +187,7 @@ def get_google_sheet():
         )
         client = gspread.authorize(creds)
         return client.open("حاسبة استهلاك الأقمشة - البيانات")
-    except Exception:
+    except Exception as e:
         return None
 
 
@@ -213,7 +207,7 @@ def log_page_visit():
 
 log_page_visit()
 
-# 4. الهيدر الرئيسي للتطبيق
+# 4. الهيدر الرئيسي
 st.markdown(
     """
     <div class="brand-header">
@@ -224,25 +218,39 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# إدارة حالة التسجيل
 if "user_registered" not in st.session_state:
     st.session_state["user_registered"] = False
 
-# 5. القسم الأول: تسجيل البيانات الأساسية
+# 5. القسم الأول: نموذج تسجيل البيانات المطور والمنظم
 if not st.session_state["user_registered"]:
     st.markdown('<div class="custom-card">', unsafe_allow_html=True)
     st.subheader("بيانات التسجيل لتفعيل الحاسبة")
-    st.caption("يرجى إدخال البيانات الأساسية للبدء في حساب احتياجات الأقمشة.")
+    st.caption("جميع الحقول مطلوبة لتفعيل الحاسبة وتوثيق طلبك.")
 
     with st.form("client_register_form"):
         col1, col2 = st.columns(2)
         with col1:
-            name = st.text_input("الاسم بالكامل")
-            phone = st.text_input("رقم الواتساب")
-            job_title = st.text_input("الوظيفة / المسمى الوظيفي")
+            name = st.text_input("الاسم بالكامل *")
+            phone = st.text_input("رقم الواتساب *", placeholder="01xxxxxxxxx")
+            job_title = st.selectbox(
+                "الوظيفة / المسمى الوظيفي *",
+                [
+                    "اختر المسمى الوظيفي...",
+                    "صاحب مصنع / البراند",
+                    "مدير إنتاج",
+                    "مدير جودة",
+                    "مهندس تخطيط ومتابعة",
+                    "مصمم / باترونيست",
+                    "مسؤول مشتريات",
+                    "أخرى",
+                ],
+            )
+
         with col2:
-            email = st.text_input("البريد الإلكتروني")
-            factory_brand = st.text_input("اسم المصنع أو البراند")
+            email = st.text_input(
+                "البريد الإلكتروني *", placeholder="example@domain.com"
+            )
+            factory_brand = st.text_input("اسم المصنع أو البراند *")
             newsletter = st.checkbox(
                 "الاشتراك في النشرة البريدية والتحديثات التشغيلية", value=True
             )
@@ -250,8 +258,25 @@ if not st.session_state["user_registered"]:
         submit_btn = st.form_submit_button("الانتقال إلى الحاسبة")
 
         if submit_btn:
-            if name.strip() == "" or phone.strip() == "":
-                st.error("يرجى كتابة الاسم ورقم الواتساب على الأقل للمتابعة.")
+            email_regex = r"^[\w\.-]+@[\w\.-]+\.\w+$"
+            clean_phone = re.sub(r"\D", "", phone)
+
+            # التحقق التام من اكتمال وصحة البيانات
+            if (
+                name.strip() == ""
+                or phone.strip() == ""
+                or email.strip() == ""
+                or factory_brand.strip() == ""
+            ):
+                st.error("يرجى ملء جميع الحقول المطلوبة.")
+            elif job_title == "اختر المسمى الوظيفي...":
+                st.error("يرجى اختيار المسمى الوظيفي من القائمة.")
+            elif not re.match(email_regex, email.strip()):
+                st.error(
+                    "يرجى إدخال بريد إلكتروني صحيح (مثال: name@domain.com)."
+                )
+            elif len(clean_phone) < 10:
+                st.error("يرجى إدخال رقم واتساب صحيح لا يقل عن 10 أرقام.")
             else:
                 spreadsheet = get_google_sheet()
                 if spreadsheet:
@@ -262,30 +287,37 @@ if not st.session_state["user_registered"]:
                         )
                         sheet.append_row(
                             [
-                                name,
-                                email,
-                                phone,
-                                factory_brand,
+                                name.strip(),
+                                email.strip(),
+                                phone.strip(),
+                                factory_brand.strip(),
                                 job_title,
                                 "نعم" if newsletter else "لا",
                                 now_str,
                             ]
                         )
-                    except Exception:
-                        pass
-                st.session_state["user_registered"] = True
-                st.rerun()
+                        st.session_state["user_registered"] = True
+                        st.rerun()
+                    except Exception as e:
+                        st.error(
+                            "حدث خطأ أثناء حفظ البيانات في الشيت. يرجى التأكد من اسم تبويب 'العملاء' وصلاحيات الشيت."
+                        )
+                else:
+                    st.error(
+                        "تعذر الاتصال بقاعدة البيانات. يرجى التحقق من إعدادات Secrets."
+                    )
+
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 6. القسم الثاني: الحاسبة التشغيلية
+# 6. القسم الثاني: الحاسبة التشغيلية المعيارية
 else:
     st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-    st.subheader("معطيات أمر التصنيع")
+    st.subheader("معطيات أمر التصنيع واستهلاك الأقمشة")
 
     col_unit, col_qty = st.columns(2)
     with col_unit:
         unit_type = st.selectbox(
-            "وحدة حساب القماش",
+            "وحدة حساب القماش الأساسية",
             ["بالكيلوجرام (Kg)", "بالمتر (Meter)"],
             index=0,
         )
@@ -300,31 +332,38 @@ else:
     col1, col2 = st.columns(2)
     with col1:
         if "كيلوجرام" in unit_type:
-            garment_consumption = st.number_input(
+            garment_grams = st.number_input(
                 "استهلاك القطعة الصافي (جرام)",
                 min_value=1.0,
                 value=250.0,
                 step=10.0,
             )
-            garment_cons_unit = garment_consumption / 1000.0
+            garment_cons_unit = garment_grams / 1000.0
+            roll_size = st.number_input(
+                "وزن الثوب / الرول المعياري (كيلوجرام)",
+                min_value=1.0,
+                value=20.0,
+                step=1.0,
+            )
+            unit_label = "كيلوجرام"
         else:
             garment_cons_unit = st.number_input(
                 "استهلاك القطعة الصافي (متر)",
-                min_value=0.1,
+                min_value=0.01,
                 value=1.35,
                 step=0.05,
             )
-
-        roll_size = st.number_input(
-            f"وزن / طول الثوب المعياري ({'كيلو' if 'كيلوجرام' in unit_type else 'متر'})",
-            min_value=1.0,
-            value=20.0,
-            step=1.0,
-        )
+            roll_size = st.number_input(
+                "طول الثوب / الرول المعياري (متر)",
+                min_value=1.0,
+                value=50.0,
+                step=1.0,
+            )
+            unit_label = "متر"
 
     with col2:
         wastage_pct = st.number_input(
-            "نسبة الهالك الفني والقص (%)",
+            "نسبة الهالك والفقد (%)",
             min_value=0.0,
             max_value=30.0,
             value=5.0,
@@ -332,9 +371,9 @@ else:
         )
 
         price_per_unit = st.number_input(
-            f"سعر {'الكيلو' if 'كيلوجرام' in unit_type else 'المتر'} (اختياري)",
+            f"سعر {'الكيلو' if 'كيلوجرام' in unit_type else 'المتر'} (جنيه)",
             min_value=0.0,
-            value=0.0,
+            value=120.0,
             step=5.0,
         )
 
@@ -351,11 +390,9 @@ else:
     total_cost = total_fabric_needed * price_per_unit
     cost_per_garment = total_cost / order_qty if order_qty > 0 else 0.0
 
-    unit_label = "كيلوجرام" if "كيلوجرام" in unit_type else "متر"
-
-    # عرض النتائج
+    # عرض النتائج التشغيلية
     st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-    st.subheader("نتائج التتقدير والاحتياجات الإجمالية")
+    st.subheader("نتائج التقدير والاحتياجات التشغيلية")
 
     res_col1, res_col2 = st.columns(2)
 
@@ -367,11 +404,11 @@ else:
                 <div class="result-value">{net_fabric_needed:,.2f} {unit_label}</div>
             </div>
             <div class="result-card">
-                <div class="result-label">كمية الهالك المتوقعة ({wastage_pct}%)</div>
+                <div class="result-label">كمية الهالك والفقد المتوقعة ({wastage_pct}%)</div>
                 <div class="result-value">{wastage_amount:,.2f} {unit_label}</div>
             </div>
             <div class="result-card">
-                <div class="result-label">إجمالي القماش المطلوب لطلبه</div>
+                <div class="result-label">إجمالي القماش المطلوب شراؤه</div>
                 <div class="result-value" style="color:#d4af37;">{total_fabric_needed:,.2f} {unit_label}</div>
             </div>
         """,
@@ -382,16 +419,16 @@ else:
         st.markdown(
             f"""
             <div class="result-card">
-                <div class="result-label">عدد الأثواب / الرولات المتوقع</div>
+                <div class="result-label">عدد الأثواب / الرولات المطلوبة</div>
                 <div class="result-value">{estimated_rolls:,.1f} ثوب</div>
             </div>
             <div class="result-card">
-                <div class="result-label">إجمالي تكلفة القماش</div>
-                <div class="result-value">{total_cost:,.2f}</div>
+                <div class="result-label">إجمالي التكلفة المالية للقماش</div>
+                <div class="result-value">{total_cost:,.2f} جنيه</div>
             </div>
             <div class="result-card">
-                <div class="result-label">متوسط تكلفة القماش للقطعة</div>
-                <div class="result-value">{cost_per_garment:,.2f}</div>
+                <div class="result-label">نصيب القطعة من تكلفة القماش</div>
+                <div class="result-value">{cost_per_garment:,.2f} جنيه</div>
             </div>
         """,
             unsafe_allow_html=True,
