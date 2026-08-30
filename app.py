@@ -187,7 +187,7 @@ st.markdown(
 )
 
 
-# 3. إعداد الاتصال بقاعدة البيانات
+# 3. إعداد الاتصال بقاعدة البيانات باستخدام الـ ID المباشر
 @st.cache_resource
 def get_google_sheet():
     try:
@@ -202,7 +202,10 @@ def get_google_sheet():
             st.secrets["gcp_service_account"], scopes=scopes
         )
         client = gspread.authorize(creds)
-        spreadsheet = client.open("حاسبة استهلاك الأقمشة - البيانات")
+        
+        # ربط الشيت مباشرة باستخدام الـ ID بدلاً من البحث بالاسم
+        spreadsheet_id = "1aYYZ9g52aCR8EFe0rxQtnPEDtjx_sqiTX7uNlRP8-pU"
+        spreadsheet = client.open_by_key(spreadsheet_id)
         return spreadsheet, None
     except Exception as e:
         err_str = str(e)
