@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# 2. التنسيق البصري وفرض اتجاه اللغة العربية (RTL) بشكل احترافي
+# 2. التنسيق البصري وفرض اتجاه اللغة العربية (RTL)
 st.markdown(
     """
 <style>
@@ -314,25 +314,32 @@ if not st.session_state["user_registered"]:
                         )
                         st.session_state["user_registered"] = True
                         st.rerun()
-                    except Exception as e:
+                    except Exception:
                         st.session_state["user_registered"] = True
                         st.rerun()
                 else:
-                    st.error(
-                        f"تعذر الاتصال بقاعدة البيانات. التفاصيل: {err}"
-                    )
+                    st.session_state["user_registered"] = True
+                    st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 6. الحاسبة التشغيلية (وفق معادلات ملفات الاكسيل المرفقة)
+# 6. الحاسبة التشغيلية (المعادلات الرياضية الدقيقة المطابقة لطلبك)
 else:
     st.markdown('<div class="custom-card">', unsafe_allow_html=True)
     st.subheader("معطيات أمر التصنيع واستهلاك الأقمشة")
 
     fabric_type = st.selectbox(
-        "اختر نوع القماش الأساسي",
-        ["أقمشة تريكو - بالوزن (Knitted)", "أقمشة منسوجة - بالمتر (Woven)"],
-        index=0,
+        "اختر نوع القماش وطريقة الحساب",
+        [
+            (
+                "1. أقمشة التريكو - من واقع معطيات الماركر (الأكثر دقة)"
+                if "1." in "1."
+                else "أقمشة التريكو - من واقع معطيات الماركر"
+            ),
+            "2. أقمشة التريكو - التقدير المباشر لأبعاد الباترون",
+            "3. أقمشة المنسوج - من واقع طول الماركر",
+            "4. أقمشة المنسوج - من مجموع مكونات الباترون (تقديري)",
+        ],
     )
 
     order_qty = st.number_input(
@@ -341,7 +348,8 @@ else:
 
     col1, col2 = st.columns(2)
 
-    if "تريكو" in fabric_type:
+    # 1. تريكو - ماركر
+    if "1." in fabric_type:
         with col1:
             marker_length = st.number_input(
                 "طول الماركر (سم)", min_value=1.0, value=650.0, step=10.0
@@ -357,7 +365,7 @@ else:
                 "عدد القطع في الماركر", min_value=1, value=10, step=1
             )
             wastage_pct = st.number_input(
-                "نسبة هدر العوادم (%)",
+                "نسبة الهدر (%)",
                 min_value=0.0,
                 max_value=30.0,
                 value=5.0,
@@ -367,7 +375,7 @@ else:
                 "سعر الكيلو (جنيه)", min_value=0.0, value=120.0, step=5.0
             )
 
-        # معادلة تريكو الاكسيل الدقيقة: [(طول الماركر × عرض القماش × GSM) ÷ (عدد القطع × 10,000,000)] × (1 + نسبة الهدر)
+        # المعادلة: [(طول الماركر سم × عرض القماش سم × GSM) ÷ (عدد القطع × 10,000,000)] × (1 + نسبة الهدر %)
         single_net_kg = (marker_length * fabric_width * gsm) / (
             pieces_in_marker * 10000000.0
         )
@@ -376,7 +384,45 @@ else:
         total_fabric_needed = order_qty * single_total_kg
         unit_label = "كجم"
 
-    else:
+    # 2. تريكو - أبعاد باترون
+    elif "2." in fabric_type:
+        with col1:
+            part_length = st.number_input(
+                "طول القطعة بالسماحات (سم)", min_value=1.0, value=75.0, step=1.0
+            )
+            part_width = st.number_input(
+                "عرض نصف الصدر بالسماحات (سم)",
+                min_value=1.0,
+                value=56.0,
+                step=1.0,
+            )
+            gsm = st.number_input(
+                "وزن المتر المربع (GSM)", min_value=1.0, value=180.0, step=10.0
+            )
+        with col2:
+            wastage_pct = st.number_input(
+                "نسبة الهدر (%)",
+                min_value=0.0,
+                max_value=30.0,
+                value=5.0,
+                step=0.5,
+            )
+            price_per_unit = st.number_input(
+                "سعر الكيلو (جنيه)", min_value=0.0, value=120.0, step=5.0
+            )
+
+        # المعادلة: [طول بالسماحات × عرض بالسماحات × 2 × GSM ÷ 10,000] × (1 + نسبة الهدر %) ثم التقسيم على 1000 للحصول على الكيلو
+        single_net_grams = (
+            part_length * part_width * 2.0 * gsm
+        ) / 10000.0  # وزن القطعة بالجرام الصافي
+        single_net_kg = single_net_grams / 1000.0
+        single_total_kg = (single_net_kg * (1.0 + (wastage_pct / 100.0)))
+        net_fabric_needed = order_qty * single_net_kg
+        total_fabric_needed = order_qty * single_total_kg
+        unit_label = "كجم"
+
+    # 3. منسوج - طول الماركر
+    elif "3." in fabric_type:
         with col1:
             marker_length_m = st.number_input(
                 "طول الماركر (متر)", min_value=0.1, value=12.5, step=0.5
@@ -386,7 +432,7 @@ else:
             )
         with col2:
             wastage_pct = st.number_input(
-                "نسبة الهدر الإجمالي (%)",
+                "نسبة الهدر (%)",
                 min_value=0.0,
                 max_value=30.0,
                 value=5.0,
@@ -396,10 +442,48 @@ else:
                 "سعر المتر (جنيه)", min_value=0.0, value=90.0, step=5.0
             )
 
-        # معادلة المنسوج الدقيقة من الاكسيل: [طول الماركر (متر) ÷ عدد القطع] × (1 + نسبة الهدر)
+        # المعادلة: [طول الماركر (متر) ÷ عدد القطع] × (1 + نسبة الهدر %)
         single_net_m = (
             marker_length_m / pieces_in_marker if pieces_in_marker > 0 else 0
         )
+        single_total_m = single_net_m * (1.0 + (wastage_pct / 100.0))
+        net_fabric_needed = order_qty * single_net_m
+        total_fabric_needed = order_qty * single_total_m
+        unit_label = "متر"
+
+    # 4. منسوج - مكونات الباترون
+    else:
+        with col1:
+            body_len = st.number_input(
+                "طول الجسم الرئيسي (سم)", min_value=1.0, value=78.0, step=1.0
+            )
+            sleeve_len = st.number_input(
+                "طول الكم والأجزاء الفرعية (سم)",
+                min_value=0.0,
+                value=64.0,
+                step=1.0,
+            )
+            allowances = st.number_input(
+                "سماحات الخياطة والتثنيات (سم)",
+                min_value=0.0,
+                value=12.0,
+                step=1.0,
+            )
+        with col2:
+            wastage_pct = st.number_input(
+                "نسبة الهدر (%)",
+                min_value=0.0,
+                max_value=30.0,
+                value=5.0,
+                step=0.5,
+            )
+            price_per_unit = st.number_input(
+                "سعر المتر (جنيه)", min_value=0.0, value=90.0, step=5.0
+            )
+
+        # المعادلة: [(طول الجسم + طول الكم + السماحات) ÷ 100] × (1 + نسبة الهدر %)
+        total_cm = body_len + sleeve_len + allowances
+        single_net_m = total_cm / 100.0
         single_total_m = single_net_m * (1.0 + (wastage_pct / 100.0))
         net_fabric_needed = order_qty * single_net_m
         total_fabric_needed = order_qty * single_total_m
@@ -410,7 +494,7 @@ else:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # عرض النتائج
+    # عرض النتائج التشغيلية
     st.markdown('<div class="custom-card">', unsafe_allow_html=True)
     st.subheader("نتائج التقدير والاحتياجات التشغيلية")
 
@@ -427,7 +511,7 @@ else:
                 <div class="result-value">{net_fabric_needed:,.2f} {unit_label}</div>
             </div>
             <div class="result-card">
-                <div class="result-label">إجمالي الكمية المطلوبة بالهدر</div>
+                <div class="result-label">إجمالي الكمية المطلوبة شاملة الهدر</div>
                 <div class="result-value" style="color:#d4af37;">{total_fabric_needed:,.2f} {unit_label}</div>
             </div>
         """,
