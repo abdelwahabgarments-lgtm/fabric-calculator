@@ -539,29 +539,21 @@ else:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 7. الفوتر الرئيسي (النسخة النهائية النظيفة)
-st.markdown(
-    """
-    <div class="footer-container">
-        <div class="footer-brand">Abdelwahab Garments</div>
-        <div class="footer-text">
-            نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام. خبرة ميدانية فى صناعة الملابس الجاهزة منذ عام 2011، متخصص فى التخطيط والمتابعة وإدارة طلبات التصنيع.
-        </div>
-        
-        <div style="margin: 15px 0; font-size: 14px; color: #d4af37;">
-            البريد الإلكتروني: <a href="mailto:abdelwahab.garments@gmail.com" style="color: #ffffff; text-decoration: none;">abdelwahab.garments@gmail.com</a>
-        </div>
+# الفوتر الرئيسي النهائي
+st.markdown("---")
+st.markdown("### Abdelwahab Garments")
+st.write(
+    "نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام."
+)
 
-        <div style="margin: 15px 0; display: flex; gap: 15px;">
-            <a href="mailto:abdelwahab.garments@gmail.com" style="background-color: #1c1f28; color: #d4af37; padding: 8px 16px; border-radius: 6px; text-decoration: none; border: 1px solid #2e3444; font-size: 14px;">إرسال بريد</a>
-            <a href="https://www.facebook.com/abdelwahab.garments" target="_blank" style="background-color: #1c1f28; color: #d4af37; padding: 8px 16px; border-radius: 6px; text-decoration: none; border: 1px solid #2e3444; font-size: 14px;">فيسبوك</a>
-            <a href="https://wa.me/201002002202" target="_blank" style="background-color: #1c1f28; color: #d4af37; padding: 8px 16px; border-radius: 6px; text-decoration: none; border: 1px solid #2e3444; font-size: 14px;">واتساب</a>
-        </div>
+col_f1, col_f2, col_f3 = st.columns(3)
+with col_f1:
+    st.markdown("[راسلنا بريدياً](mailto:abdelwahab.garments@gmail.com)")
+with col_f2:
+    st.markdown("[صفحة الفيسبوك](https://www.facebook.com/abdelwahab.garments)")
+with col_f3:
+    st.markdown("[تواصل واتساب](https://wa.me/201002002202)")
 
-        <div class="copyright">
-            جميع الحقوق محفوظة © 2026 Abdelwahab Garments - محمد عبد الوهاب
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
+st.caption(
+    "جميع الحقوق محفوظة © 2026 Abdelwahab Garments - محمد عبد الوهاب"
 )
