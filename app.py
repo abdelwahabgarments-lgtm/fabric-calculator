@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# 2. التنسيق البصري وفرض محاذاة اللغة العربية لليمين (RTL)
+# 2. التنسيق البصري وفرض اتجاه اللغة العربية (RTL) بشكل احترافي
 st.markdown(
     """
 <style>
@@ -187,7 +187,7 @@ st.markdown(
 )
 
 
-# 3. إعداد الاتصال بـ Google Sheets بدون خطأ استجابة 200
+# 3. إعداد الاتصال بقاعدة البيانات
 @st.cache_resource
 def get_google_sheet():
     try:
@@ -207,7 +207,7 @@ def get_google_sheet():
     except Exception as e:
         err_str = str(e)
         if "200" in err_str:
-            return client, None  # تجاوز استجابة 200 الوهمية إذا حدثت
+            return client, None
         return None, err_str
 
 
@@ -315,9 +315,6 @@ if not st.session_state["user_registered"]:
                         st.session_state["user_registered"] = True
                         st.rerun()
                     except Exception as e:
-                        st.error(
-                            f"تم التسجيل بنجاح، انتقل للحاسبة. (تفاصيل الشيت: {e})"
-                        )
                         st.session_state["user_registered"] = True
                         st.rerun()
                 else:
@@ -327,84 +324,93 @@ if not st.session_state["user_registered"]:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 6. الحاسبة التشغيلية
+# 6. الحاسبة التشغيلية (وفق معادلات ملفات الاكسيل المرفقة)
 else:
     st.markdown('<div class="custom-card">', unsafe_allow_html=True)
     st.subheader("معطيات أمر التصنيع واستهلاك الأقمشة")
 
-    col_unit, col_qty = st.columns(2)
-    with col_unit:
-        unit_type = st.selectbox(
-            "وحدة حساب القماش الأساسية",
-            ["بالكيلوجرام (Kg)", "بالمتر (Meter)"],
-            index=0,
-        )
-    with col_qty:
-        order_qty = st.number_input(
-            "عدد القطع المطلوب إنتاجها (قطع)",
-            min_value=1,
-            value=1000,
-            step=50,
-        )
+    fabric_type = st.selectbox(
+        "اختر نوع القماش الأساسي",
+        ["أقمشة تريكو - بالوزن (Knitted)", "أقمشة منسوجة - بالمتر (Woven)"],
+        index=0,
+    )
+
+    order_qty = st.number_input(
+        "كمية الأمر (عدد القطع المطلوب إنتاجها)", min_value=1, value=1000, step=50
+    )
 
     col1, col2 = st.columns(2)
-    with col1:
-        if "كيلوجرام" in unit_type:
-            garment_grams = st.number_input(
-                "استهلاك القطعة الصافي (جرام)",
-                min_value=1.0,
-                value=250.0,
-                step=10.0,
-            )
-            garment_cons_unit = garment_grams / 1000.0
-            roll_size = st.number_input(
-                "وزن الثوب / الرول المعياري (كيلوجرام)",
-                min_value=1.0,
-                value=20.0,
-                step=1.0,
-            )
-            unit_label = "كيلوجرام"
-        else:
-            garment_cons_unit = st.number_input(
-                "استهلاك القطعة الصافي (متر)",
-                min_value=0.01,
-                value=1.35,
-                step=0.05,
-            )
-            roll_size = st.number_input(
-                "طول الثوب / الرول المعياري (متر)",
-                min_value=1.0,
-                value=50.0,
-                step=1.0,
-            )
-            unit_label = "متر"
 
-    with col2:
-        wastage_pct = st.number_input(
-            "نسبة الهالك والفقد (%)",
-            min_value=0.0,
-            max_value=30.0,
-            value=5.0,
-            step=0.5,
+    if "تريكو" in fabric_type:
+        with col1:
+            marker_length = st.number_input(
+                "طول الماركر (سم)", min_value=1.0, value=650.0, step=10.0
+            )
+            fabric_width = st.number_input(
+                "عرض القماش الشغال (سم)", min_value=1.0, value=180.0, step=5.0
+            )
+            gsm = st.number_input(
+                "وزن المتر المربع (GSM)", min_value=1.0, value=200.0, step=10.0
+            )
+        with col2:
+            pieces_in_marker = st.number_input(
+                "عدد القطع في الماركر", min_value=1, value=10, step=1
+            )
+            wastage_pct = st.number_input(
+                "نسبة هدر العوادم (%)",
+                min_value=0.0,
+                max_value=30.0,
+                value=5.0,
+                step=0.5,
+            )
+            price_per_unit = st.number_input(
+                "سعر الكيلو (جنيه)", min_value=0.0, value=120.0, step=5.0
+            )
+
+        # معادلة تريكو الاكسيل الدقيقة: [(طول الماركر × عرض القماش × GSM) ÷ (عدد القطع × 10,000,000)] × (1 + نسبة الهدر)
+        single_net_kg = (marker_length * fabric_width * gsm) / (
+            pieces_in_marker * 10000000.0
         )
-        price_per_unit = st.number_input(
-            f"سعر {'الكيلو' if 'كيلوجرام' in unit_type else 'المتر'} (جنيه)",
-            min_value=0.0,
-            value=120.0,
-            step=5.0,
+        single_total_kg = single_net_kg * (1.0 + (wastage_pct / 100.0))
+        net_fabric_needed = order_qty * single_net_kg
+        total_fabric_needed = order_qty * single_total_kg
+        unit_label = "كجم"
+
+    else:
+        with col1:
+            marker_length_m = st.number_input(
+                "طول الماركر (متر)", min_value=0.1, value=12.5, step=0.5
+            )
+            pieces_in_marker = st.number_input(
+                "عدد القطع في الماركر", min_value=1, value=8, step=1
+            )
+        with col2:
+            wastage_pct = st.number_input(
+                "نسبة الهدر الإجمالي (%)",
+                min_value=0.0,
+                max_value=30.0,
+                value=5.0,
+                step=0.5,
+            )
+            price_per_unit = st.number_input(
+                "سعر المتر (جنيه)", min_value=0.0, value=90.0, step=5.0
+            )
+
+        # معادلة المنسوج الدقيقة من الاكسيل: [طول الماركر (متر) ÷ عدد القطع] × (1 + نسبة الهدر)
+        single_net_m = (
+            marker_length_m / pieces_in_marker if pieces_in_marker > 0 else 0
         )
+        single_total_m = single_net_m * (1.0 + (wastage_pct / 100.0))
+        net_fabric_needed = order_qty * single_net_m
+        total_fabric_needed = order_qty * single_total_m
+        unit_label = "متر"
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    net_fabric_needed = order_qty * garment_cons_unit
-    wastage_amount = net_fabric_needed * (wastage_pct / 100.0)
-    total_fabric_needed = net_fabric_needed + wastage_amount
-    estimated_rolls = (
-        total_fabric_needed / roll_size if roll_size > 0 else 0.0
-    )
     total_cost = total_fabric_needed * price_per_unit
     cost_per_garment = total_cost / order_qty if order_qty > 0 else 0.0
 
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # عرض النتائج
     st.markdown('<div class="custom-card">', unsafe_allow_html=True)
     st.subheader("نتائج التقدير والاحتياجات التشغيلية")
 
@@ -413,15 +419,15 @@ else:
         st.markdown(
             f"""
             <div class="result-card">
-                <div class="result-label">إجمالي القماش الصافي المطلوب</div>
+                <div class="result-label">الاستهلاك الصافي للقطعة الواحدة</div>
+                <div class="result-value">{(net_fabric_needed/order_qty):,.4f} {unit_label}</div>
+            </div>
+            <div class="result-card">
+                <div class="result-label">إجمالي الكمية الصافية المطلوبة</div>
                 <div class="result-value">{net_fabric_needed:,.2f} {unit_label}</div>
             </div>
             <div class="result-card">
-                <div class="result-label">كمية الهالك والفقد المتوقعة ({wastage_pct}%)</div>
-                <div class="result-value">{wastage_amount:,.2f} {unit_label}</div>
-            </div>
-            <div class="result-card">
-                <div class="result-label">إجمالي القماش المطلوب شراؤه</div>
+                <div class="result-label">إجمالي الكمية المطلوبة بالهدر</div>
                 <div class="result-value" style="color:#d4af37;">{total_fabric_needed:,.2f} {unit_label}</div>
             </div>
         """,
@@ -432,8 +438,8 @@ else:
         st.markdown(
             f"""
             <div class="result-card">
-                <div class="result-label">عدد الأثواب / الرولات المطلوبة</div>
-                <div class="result-value">{estimated_rolls:,.1f} ثوب</div>
+                <div class="result-label">سعر الوحدة</div>
+                <div class="result-value">{price_per_unit:,.2f} جنيه</div>
             </div>
             <div class="result-card">
                 <div class="result-label">إجمالي التكلفة المالية للقماش</div>
@@ -449,7 +455,7 @@ else:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 7. الفوتر الرئيسي المحدث (بريد إلكتروني + فيسبوك صحيح + واتساب)
+# 7. الفوتر الرئيسي
 st.markdown(
     """
     <div class="footer-container">
