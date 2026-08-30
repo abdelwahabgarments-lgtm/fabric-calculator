@@ -1,269 +1,438 @@
+import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 import streamlit as st
-import pandas as pd
-import os
-from datetime import datetime
 
-st.set_page_config(page_title="حاسبة استهلاك الأقمشة - محمد عبدالوهاب", layout="wide")
+# 1. إعدادات الصفحة الأساسية
+st.set_page_config(
+    page_title="حاسبة استهلاك الأقمشة | Abdelwahab Garments",
+    page_icon="📐",
+    layout="centered",
+    initial_sidebar_state="collapsed",
+)
 
-# تنسيق واجهة التطبيق لتكون من اليمين إلى اليسار (RTL)
-st.markdown("""
-    <style>
-    html, body, [class*="css"], .stApp {
+# 2. التنسيق البصري والتصميم (CSS Custom Theme)
+st.markdown(
+    """
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Cairo', sans-serif !important;
         direction: rtl;
         text-align: right;
+        background-color: #0d0e11 !important;
+        color: #e0e0e0;
     }
-    
-    h1, h2, h3, h4, h5, h6, p, label, .stMarkdown {
-        text-align: right !important;
-        direction: rtl !important;
+
+    .stApp {
+        background-color: #0d0e11;
     }
-    
-    button[data-baseweb="tab"] {
-        direction: rtl !important;
+
+    /* العناوين الرئيسيّة والفرعيّة */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Cairo', sans-serif !important;
+        color: #ffffff !important;
+        font-weight: 700;
     }
-    
-    section[data-testid="stSidebar"] {
-        direction: rtl;
-        text-align: right;
-    }
-    
-    div[class*="stRadio"] > label, div[class*="stNumberInput"] > label, div[class*="stTextInput"] > label {
-        text-align: right !important;
-        direction: rtl !important;
-    }
-    
-    .social-btn-web {
-        display: block;
-        width: 100%;
-        background-color: #1E3A8A;
-        color: white !important;
+
+    /* الهيدر العلوي */
+    .brand-header {
         text-align: center;
-        padding: 10px;
-        margin-bottom: 8px;
-        border-radius: 6px;
-        text-decoration: none;
-        font-weight: bold;
+        padding: 20px 0 30px 0;
+        border-bottom: 1px solid #1f232d;
+        margin-bottom: 30px;
     }
-    .social-btn-fb {
-        display: block;
+    .brand-title {
+        font-size: 28px;
+        font-weight: 800;
+        color: #d4af37;
+        letter-spacing: 1px;
+        margin-bottom: 6px;
+    }
+    .brand-subtitle {
+        font-size: 15px;
+        color: #9aa0a6;
+    }
+
+    /* الكروت والحاويات */
+    .custom-card {
+        background-color: #15171e;
+        border: 1px solid #242834;
+        border-radius: 12px;
+        padding: 28px;
+        margin-bottom: 24px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    /* الأزرار الرئيسية */
+    .stButton > button {
+        background: linear-gradient(135deg, #d4af37 0%, #aa820a 100%) !important;
+        color: #0d0e11 !important;
+        font-weight: 700 !important;
+        font-size: 16px !important;
+        border-radius: 8px !important;
+        border: none !important;
+        padding: 12px 24px !important;
         width: 100%;
-        background-color: #1877F2;
-        color: white !important;
-        text-align: center;
-        padding: 10px;
-        margin-bottom: 8px;
-        border-radius: 6px;
-        text-decoration: none;
-        font-weight: bold;
+        transition: all 0.3s ease-in-out !important;
     }
-    </style>
-""", unsafe_allow_html=True)
 
-# إدارة حالة الدخول
-if 'registered' not in st.session_state:
-    st.session_state['registered'] = False
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #e5be48 0%, #c29613 100%) !important;
+        box-shadow: 0 0 18px rgba(212, 175, 55, 0.35) !important;
+        transform: translateY(-2px);
+    }
 
-# الشريط الجانبي
-with st.sidebar:
-    st.header("محمد عبدالوهاب")
-    st.write("استشارات وتخطيط إنتاج مصانع الملابس")
-    st.markdown("---")
-    
-    st.markdown('<a href="https://abdelwahabgarments.com/" target="_blank" class="social-btn-web">زيارة الموقع الرسمي</a>', unsafe_allow_html=True)
-    st.markdown('<a href="https://www.facebook.com/abdelwahab.garments" target="_blank" class="social-btn-fb">متابعة صفحة الفيسبوك</a>', unsafe_allow_html=True)
-    
-    st.markdown("---")
-    st.caption("تطوير وتشغيل: الرادار - Abdelwahab Garments")
+    /* حقول الإدخال */
+    .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
+        background-color: #1c1f28 !important;
+        color: #ffffff !important;
+        border: 1px solid #2e3444 !important;
+        border-radius: 8px !important;
+    }
 
-# دالة حفظ تسجيل جديد
-def save_new_lead(name, email, whatsapp, company, job_title, newsletter_opt_in):
-    file_path = "leads.csv"
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    new_data = pd.DataFrame([{
-        "التاريخ والوقت": timestamp,
-        "الاسم": name,
-        "البريد الإلكتروني": email.strip().lower(),
-        "رقم الواتساب": whatsapp.strip(),
-        "المصنع / البراند": company,
-        "الوظيفة": job_title,
-        "الاشتراك في النشرة": "نعم" if newsletter_opt_in else "لا",
-        "عدد الزيارات": 1
-    }])
-    
-    if os.path.exists(file_path):
-        new_data.to_csv(file_path, mode='a', header=False, index=False, encoding='utf-8-sig')
-    else:
-        new_data.to_csv(file_path, mode='w', header=True, index=False, encoding='utf-8-sig')
+    .stTextInput input:focus, .stNumberInput input:focus {
+        border-color: #d4af37 !important;
+        box-shadow: 0 0 6px rgba(212, 175, 55, 0.4) !important;
+    }
 
-# دالة التحقق من زائر سابق
-def check_returning_lead(identifier):
-    file_path = "leads.csv"
-    if not os.path.exists(file_path):
-        return False
-    
-    df = pd.read_csv(file_path, encoding='utf-8-sig')
-    identifier_clean = identifier.strip().lower()
-    
-    # البحث بالبريد أو برقم الواتساب
-    emails = df['البريد الإلكتروني'].astype(str).str.strip().str.lower().tolist() if 'البريد الإلكتروني' in df.columns else []
-    phones = df['رقم الواتساب'].astype(str).str.strip().tolist() if 'رقم الواتساب' in df.columns else []
-    
-    if identifier_clean in emails or identifier_clean in phones:
-        return True
-    return False
+    /* كروت النتائج والمؤشرات */
+    .result-card {
+        background-color: #1a1d26;
+        border-right: 4px solid #d4af37;
+        padding: 18px;
+        border-radius: 8px;
+        margin-bottom: 14px;
+    }
+    .result-value {
+        font-size: 22px;
+        font-weight: 800;
+        color: #ffffff;
+    }
+    .result-label {
+        font-size: 13px;
+        color: #a0a6b5;
+    }
 
-# شاشة الوصول للتطبيق
-if not st.session_state['registered']:
-    st.title("حاسبة استهلاك الأقمشة (تريكو ومنسوج)")
-    
-    access_type = st.radio(
-        "يرجى تحديد نوع الدخول:",
-        ["دخول سريع (لمستخدم مسجل سابقاً)", "تسجيل جديد (لأول مرة)"],
-        horizontal=True
-    )
-    
-    st.markdown("---")
-    
-    # نموذج الدخول السريع
-    if access_type == "دخول سريع (لمستخدم مسجل سابقاً)":
-        st.subheader("الدخول السريع")
-        with st.form("quick_login_form"):
-            user_input = st.text_input("ادخل البريد الإلكتروني أو رقم الواتساب المسجل لدينا:")
-            submit_quick = st.form_submit_button("فتح الحاسبة")
-            
-            if submit_quick:
-                if user_input:
-                    if check_returning_lead(user_input):
-                        st.session_state['registered'] = True
-                        st.success("تم التحقق بنجاح. جاري فتح الحاسبة...")
-                        st.rerun()
-                    else:
-                        st.error("البيانات المدخلة غير مسجلة لدينا مسبقاً. يرجى اختيار 'تسجيل جديد (لأول مرة)' لإكمال البيانات.")
-                else:
-                    st.warning("يرجى كتابة البريد الإلكتروني أو رقم الواتساب للتحقق.")
+    /* الفوتر السفلية */
+    .footer-container {
+        background-color: #12141a;
+        border-top: 1px solid #222632;
+        padding: 35px 25px 20px 25px;
+        margin-top: 50px;
+        border-radius: 12px 12px 0 0;
+    }
 
-    # نموذج التسجيل الكامل لأول مرة
-    else:
-        st.subheader("تسجيل البيانات لأول مرة")
-        with st.form("registration_form"):
-            col_reg1, col_reg2 = st.columns(2)
-            
-            with col_reg1:
-                user_name = st.text_input("الاسم بالكامل *")
-                user_email = st.text_input("البريد الإلكتروني *")
-                user_whatsapp = st.text_input("رقم الواتساب *")
-                
-            with col_reg2:
-                user_company = st.text_input("اسم المصنع أو البراند *")
-                user_job = st.selectbox(
-                    "الوظيفة / طبيعة العمل *",
-                    ["صاحب مصنع", "صاحب براند ملابس", "مدير إنتاج", "مخطط إنتاج / PPC", "باترونيست / مصمم", "أخرى"]
-                )
-            
-            newsletter_opt = st.checkbox(
-                "أود الاشتراك في النشرة البريدية الأسبوعية الخاصة بتخطيط وتطوير إنتاج الملابس",
-                value=True
-            )
-            
-            submit_button = st.form_submit_button("حفظ البيانات وبدء استخدام الحاسبة")
-            
-            if submit_button:
-                if user_name and user_email and user_whatsapp and user_company:
-                    save_new_lead(user_name, user_email, user_whatsapp, user_company, user_job, newsletter_opt)
-                    st.session_state['registered'] = True
-                    st.success("تم الحفظ بنجاح. جاري فتح الحاسبة...")
-                    st.rerun()
-                else:
-                    st.error("يرجى إكمال جميع الخانات المطلوبة للبدء.")
+    .footer-brand {
+        font-size: 20px;
+        font-weight: 800;
+        color: #d4af37;
+        margin-bottom: 12px;
+    }
 
-# الشاشة الرئيسية - الحاسبة
-else:
-    st.title("حاسبة استهلاك الأقمشة (تريكو ومنسوج)")
-    st.write("أداة حساب الاستهلاك الفعلي والتقديري للقطع وأوامر التشغيل")
+    .footer-text {
+        font-size: 14px;
+        line-height: 1.8;
+        color: #a0a6b5;
+        margin-bottom: 24px;
+    }
 
-    tab1, tab2 = st.tabs(["أقمشة التريكو (بالوزن)", "أقمشة المنسوج (بالمتر)"])
+    .social-row {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        margin-top: 15px;
+    }
 
-    # تبويب التريكو
-    with tab1:
-        st.header("حساب استهلاك التريكو بالكيلوجرام")
-        
-        calc_type_knit = st.radio(
-            "طريقة الحساب:",
-            ["بناءً على معطيات الماركر (دقيق)", "بناءً على أبعاد القطعة (تقديري)"]
+    .social-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background-color: #1c1f28;
+        border: 1px solid #2e3444;
+        color: #d4af37;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+
+    .social-btn:hover {
+        background-color: #d4af37;
+        color: #0d0e11;
+        border-color: #d4af37;
+        transform: translateY(-2px);
+    }
+
+    .copyright {
+        text-align: center;
+        font-size: 13px;
+        color: #636a79;
+        margin-top: 25px;
+        padding-top: 18px;
+        border-top: 1px solid #1c1f28;
+    }
+</style>
+""",
+    unsafe_html=True,
+)
+
+
+# 3. إعداد الاتصال مع Google Sheets
+@st.cache_resource
+def get_google_sheet():
+    try:
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        creds = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"], scopes=scopes
         )
-        
+        client = gspread.authorize(creds)
+        return client.open("حاسبة استهلاك الأقمشة - البيانات")
+    except Exception:
+        return None
+
+
+# تسجيل الزيارات التلقائي
+def log_page_visit():
+    if "visited_logged" not in st.session_state:
+        spreadsheet = get_google_sheet()
+        if spreadsheet:
+            try:
+                sheet = spreadsheet.worksheet("سجل_الزيارات")
+                now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                sheet.append_row([now_str, "زائر جديد", "تصفح الحاسبة"])
+                st.session_state["visited_logged"] = True
+            except Exception:
+                pass
+
+
+log_page_visit()
+
+# 4. الهيدر الرئيسي للتطبيق
+st.markdown(
+    """
+    <div class="brand-header">
+        <div class="brand-title">ABDELWAHAB GARMENTS</div>
+        <div class="brand-subtitle">حاسبة استهلاك الأقمشة وتقدير الاحتياجات التشغيلية للمصانع</div>
+    </div>
+""",
+    unsafe_html=True,
+)
+
+# إدارة حالة التسجيل
+if "user_registered" not in st.session_state:
+    st.session_state["user_registered"] = False
+
+# 5. القسم الأول: تسجيل البيانات الأساسية
+if not st.session_state["user_registered"]:
+    st.markdown('<div class="custom-card">', unsafe_html=True)
+    st.subheader("بيانات التسجيل لتفعيل الحاسبة")
+    st.caption("يرجى إدخال البيانات الأساسية للبدء في حساب احتياجات الأقمشة.")
+
+    with st.form("client_register_form"):
         col1, col2 = st.columns(2)
-        
-        if calc_type_knit == "بناءً على معطيات الماركر (دقيق)":
-            with col1:
-                marker_len = st.number_input("طول الماركر (سم)", value=650.0, step=10.0)
-                fabric_width = st.number_input("عرض القماش الشغال (سم)", value=180.0, step=5.0)
-                gsm = st.number_input("وزن المتر المربع GSM (جرام)", value=200.0, step=5.0)
-            with col2:
-                garments_count = st.number_input("عدد القطع في الماركر", value=10, step=1)
-                wastage_knit = st.number_input("نسبة الهدر والعوادم (%)", value=5.0, step=0.5)
-                order_qty_knit = st.number_input("كمية الأمر (عدد القطع)", value=1000, step=100, key="k1")
-                
-            net_kg = (marker_len * fabric_width * gsm) / (garments_count * 10000000)
-            gross_kg = net_kg * (1 + (wastage_knit / 100))
-            total_order_kg = gross_kg * order_qty_knit
-            
-        else:
-            with col1:
-                garment_len = st.number_input("طول القطعة شامل السماحات (سم)", value=75.0, step=1.0)
-                garment_width = st.number_input("عرض نصف الصدر شامل السماحات (سم)", value=56.0, step=1.0)
-                gsm = st.number_input("وزن المتر المربع GSM (جرام)", value=180.0, step=5.0, key="gsm2")
-            with col2:
-                wastage_knit = st.number_input("نسبة الهدر والقص (%)", value=7.0, step=0.5, key="w2")
-                order_qty_knit = st.number_input("كمية الأمر (عدد القطع)", value=1000, step=100, key="k2")
-                
-            gross_grams = ((garment_len * garment_width * 2 * gsm) / 10000) * (1 + (wastage_knit / 100))
-            gross_kg = gross_grams / 1000
-            total_order_kg = gross_kg * order_qty_knit
+        with col1:
+            name = st.text_input("الاسم بالكامل")
+            phone = st.text_input("رقم الواتساب")
+            job_title = st.text_input("الوظيفة / المسمى الوظيفي")
+        with col2:
+            email = st.text_input("البريد الإلكتروني")
+            factory_brand = st.text_input("اسم المصنع أو البراند")
+            newsletter = st.checkbox(
+                "الاشتراك في النشرة البريدية والتحديثات التشغيلية", value=True
+            )
 
-        st.markdown("---")
-        res_c1, res_c2, res_c3 = st.columns(3)
-        res_c1.metric("استهلاك القطعة (جرام)", f"{gross_kg * 1000:.1f} جرام")
-        res_c2.metric("استهلاك القطعة (كجم)", f"{gross_kg:.3f} كجم")
-        res_c3.metric("إجمالي قماش الأمر (كجم)", f"{total_order_kg:.1f} كجم")
+        submit_btn = st.form_submit_button("الانتقال إلى الحاسبة")
 
-    # تبويب المنسوج
-    with tab2:
-        st.header("حساب استهلاك المنسوج بالمتر الطولي")
-        
-        calc_type_woven = st.radio(
-            "طريقة الحساب:",
-            ["بناءً على معطيات الماركر", "حساب تقديري بمكونات القطعة"]
+        if submit_btn:
+            if name.strip() == "" or phone.strip() == "":
+                st.error("يرجى كتابة الاسم ورقم الواتساب على الأقل للمتابعة.")
+            else:
+                spreadsheet = get_google_sheet()
+                if spreadsheet:
+                    try:
+                        sheet = spreadsheet.worksheet("العملاء")
+                        now_str = datetime.datetime.now().strftime(
+                            "%Y-%m-%d %H:%M:%S"
+                        )
+                        sheet.append_row(
+                            [
+                                name,
+                                email,
+                                phone,
+                                factory_brand,
+                                job_title,
+                                "نعم" if newsletter else "لا",
+                                now_str,
+                            ]
+                        )
+                    except Exception:
+                        pass
+                st.session_state["user_registered"] = True
+                st.rerun()
+    st.markdown("</div>", unsafe_html=True)
+
+# 6. القسم الثاني: الحاسبة التشغيلية
+else:
+    st.markdown('<div class="custom-card">', unsafe_html=True)
+    st.subheader("معطيات أمر التصنيع")
+
+    col_unit, col_qty = st.columns(2)
+    with col_unit:
+        unit_type = st.selectbox(
+            "وحدة حساب القماش",
+            ["بالكيلوجرام (Kg)", "بالمتر (Meter)"],
+            index=0,
         )
-        
-        col1_w, col2_w = st.columns(2)
-        
-        if calc_type_woven == "بناءً على معطيات الماركر":
-            with col1_w:
-                marker_meters = st.number_input("طول الماركر (متر)", value=12.50, step=0.5)
-                garments_in_marker = st.number_input("عدد القطع في الماركر", value=8, step=1, key="wm1")
-            with col2_w:
-                wastage_woven = st.number_input("إجمالي نسبة الهدر ونهايات التواب (%)", value=5.0, step=0.5)
-                order_qty_woven = st.number_input("كمية الأمر (عدد القطع)", value=500, step=50, key="wq1")
-                
-            net_meters = marker_meters / garments_in_marker
-            gross_meters = net_meters * (1 + (wastage_woven / 100))
-            total_order_meters = gross_meters * order_qty_woven
-            
-        else:
-            with col1_w:
-                body_len = st.number_input("طول الجسم الرئيسي (سم)", value=78.0, step=1.0)
-                sleeve_len = st.number_input("طول الكم / الأجزاء الفرعية (سم)", value=64.0, step=1.0)
-                seam_allowance = st.number_input("سماحات الخياطة والثنيات (سم)", value=12.0, step=1.0)
-            with col2_w:
-                wastage_woven = st.number_input("نسبة الهدر والقص (%)", value=5.0, step=0.5, key="ww2")
-                order_qty_woven = st.number_input("كمية الأمر (عدد القطع)", value=500, step=50, key="wq2")
-                
-            total_cm = body_len + sleeve_len + seam_allowance
-            gross_meters = (total_cm / 100) * (1 + (wastage_woven / 100))
-            total_order_meters = gross_meters * order_qty_woven
+    with col_qty:
+        order_qty = st.number_input(
+            "عدد القطع المطلوب إنتاجها (قطع)",
+            min_value=1,
+            value=1000,
+            step=50,
+        )
 
-        st.markdown("---")
-        w_res1, w_res2 = st.columns(2)
-        w_res1.metric("استهلاك القطعة الواحدة", f"{gross_meters:.3f} متر")
-        w_res2.metric("إجمالي أمتار القماش المطلوبة", f"{total_order_meters:.1f} متر")
+    col1, col2 = st.columns(2)
+    with col1:
+        if "كيلوجرام" in unit_type:
+            garment_consumption = st.number_input(
+                "استهلاك القطعة الصافي (جرام)",
+                min_value=1.0,
+                value=250.0,
+                step=10.0,
+            )
+            garment_cons_unit = garment_consumption / 1000.0  # تحويل لكيلو
+        else:
+            garment_cons_unit = st.number_input(
+                "استهلاك القطعة الصافي (متر)",
+                min_value=0.1,
+                value=1.35,
+                step=0.05,
+            )
+
+        roll_size = st.number_input(
+            f"وزن / طول الثوب المعياري ({'كيلو' if 'كيلوجرام' in unit_type else 'متر'})",
+            min_value=1.0,
+            value=20.0,
+            step=1.0,
+        )
+
+    with col2:
+        wastage_pct = st.number_input(
+            "نسبة الهالك الفني والقص (%)",
+            min_value=0.0,
+            max_value=30.0,
+            value=5.0,
+            step=0.5,
+        )
+
+        price_per_unit = st.number_input(
+            f"سعر {'الكيلو' if 'كيلوجرام' in unit_type else 'المتر'} (اختياري)",
+            min_value=0.0,
+            value=0.0,
+            step=5.0,
+        )
+
+    st.markdown("</div>", unsafe_html=True)
+
+    # الحسابات البرمجية
+    net_fabric_needed = order_qty * garment_cons_unit
+    wastage_amount = net_fabric_needed * (wastage_pct / 100.0)
+    total_fabric_needed = net_fabric_needed + wastage_amount
+    estimated_rolls = (
+        total_fabric_needed / roll_size if roll_size > 0 else 0.0
+    )
+
+    total_cost = total_fabric_needed * price_per_unit
+    cost_per_garment = total_cost / order_qty if order_qty > 0 else 0.0
+
+    unit_label = "كيلوجرام" if "كيلوجرام" in unit_type else "متر"
+
+    # عرض النتائج
+    st.markdown('<div class="custom-card">', unsafe_html=True)
+    st.subheader("نتائج التقدير والاحتياجات الإجمالية")
+
+    res_col1, res_col2 = st.columns(2)
+
+    with res_col1:
+        st.markdown(
+            f"""
+            <div class="result-card">
+                <div class="result-label">إجمالي القماش الصافي المطلوب</div>
+                <div class="result-value">{net_fabric_needed:,.2f} {unit_label}</div>
+            </div>
+            <div class="result-card">
+                <div class="result-label">كمية الهالك المتوقعة ({wastage_pct}%)</div>
+                <div class="result-value">{wastage_amount:,.2f} {unit_label}</div>
+            </div>
+            <div class="result-card">
+                <div class="result-label">إجمالي القماش المطلوب لطلبه</div>
+                <div class="result-value" style="color:#d4af37;">{total_fabric_needed:,.2f} {unit_label}</div>
+            </div>
+        """,
+            unsafe_html=True,
+        )
+
+    with res_col2:
+        st.markdown(
+            f"""
+            <div class="result-card">
+                <div class="result-label">عدد الأثواب / الرولات المتوقع</div>
+                <div class="result-value">{estimated_rolls:,.1f} ثوب</div>
+            </div>
+            <div class="result-card">
+                <div class="result-label">إجمالي تكلفة القماش</div>
+                <div class="result-value">{total_cost:,.2f}</div>
+            </div>
+            <div class="result-card">
+                <div class="result-label">متوسط تكلفة القماش للقطعة</div>
+                <div class="result-value">{cost_per_garment:,.2f}</div>
+            </div>
+        """,
+            unsafe_html=True,
+        )
+
+    st.markdown("</div>", unsafe_html=True)
+
+# 7. الفوتر الرئيسي ذو التنسيق الاحترافي والأيقونات
+st.markdown(
+    """
+    <div class="footer-container">
+        <div class="footer-brand">Abdelwahab Garments</div>
+        <div class="footer-text">
+            نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام. خبرة ميدانية فى صناعة الملابس الجاهزة منذ عام 2011، متخصص فى التخطيط والمتابعة وإدارة طلبات التصنيع.
+        </div>
+        <div class="social-row">
+            <!-- أيقونة الموقع الإلكتروني الرسمي -->
+            <a href="https://abdelwahabgarments.com" target="_blank" class="social-btn" title="الموقع الرسمي">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+            </a>
+            <!-- أيقونة فيسبوك -->
+            <a href="https://facebook.com" target="_blank" class="social-btn" title="فيسبوك">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+            </a>
+            <!-- أيقونة الواتساب -->
+            <a href="https://wa.me/" target="_blank" class="social-btn" title="واتساب">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
+                </svg>
+            </a>
+        </div>
+        <div class="copyright">
+            جميع الحقوق محفوظة © 2026 Abdelwahab Garments - محمد عبد الوهاب
+        </div>
+    </div>
+""",
+    unsafe_html=True,
+)
