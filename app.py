@@ -542,15 +542,14 @@ else:
 # الفوتر الرئيسي النهائي
 st.markdown("---")
 
-# استخدام حاوية ب اتجاه عربي صحيح لتجنب قلب الروابط
 st.markdown(
     """
-    <div style="direction: rtl; text-align: right; font-family: sans-serif;">
-        <h3 style="color: #d4af37; margin-bottom: 5px;">Abdelwahab Garments</h3>
-        <p style="color: #a0a6b8; font-size: 14px; line-height: 1.6;">
+    <div style="direction: rtl; text-align: center; font-family: sans-serif; padding: 10px;">
+        <h3 style="color: #d4af37; margin-bottom: 8px;">Abdelwahab Garments</h3>
+        <p style="color: #a0a6b8; font-size: 14px; line-height: 1.6; max-width: 600px; margin: 0 auto 15px auto;">
             نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام.
         </p>
-        <div style="margin: 15px 0; display: flex; gap: 20px; font-size: 14px;">
+        <div style="margin: 15px 0; display: flex; justify-content: center; gap: 25px; font-size: 14px; flex-wrap: wrap;">
             <a href="mailto:abdelwahab.garments@gmail.com" style="color: #d4af37; text-decoration: none;">راسلنا بريدياً</a>
             <a href="https://www.facebook.com/abdelwahab.garments" target="_blank" style="color: #d4af37; text-decoration: none;">صفحة الفيسبوك</a>
             <a href="https://wa.me/201002002202" target="_blank" style="color: #d4af37; text-decoration: none;">تواصل واتساب</a>
@@ -562,4 +561,3 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
