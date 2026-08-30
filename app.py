@@ -549,15 +549,15 @@ st.markdown(
         <p style="color: #a0a6b8; text-align: center; font-size: 14px; margin: 0 auto 15px auto; width: 100%; display: block;">
             نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام.
         </p>
-    )
-
-    # الروابط جنب بعض في السنتر
-    st.markdown(
-        "<div style='text-align: center; margin: 15px 0;'><a href='mailto:abdelwahab.garments@gmail.com' style='color: #d4af37; text-decoration: none; margin: 0 10px;'>راسلنا بريدياً</a> | <a href='https://www.facebook.com/abdelwahab.garments' target='_blank' style='color: #d4af37; text-decoration: none; margin: 0 10px;'>صفحة الفيسبوك</a> | <a href='https://wa.me/201002002202' target='_blank' style='color: #d4af37; text-decoration: none; margin: 0 10px;'>تواصل واتساب</a></div>",
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        "<p style='color: #636a79; text-align: center; font-size: 12px; margin-top: 15px;'>جميع الحقوق محفوظة © 2026 Abdelwahab Garments - محمد عبد الوهاب</p>",
-        unsafe_allow_html=True,
-    )
+        <div style="text-align: center; direction: ltr; margin: 15px auto; width: 100%;">
+            <a href="mailto:abdelwahab.garments@gmail.com" style="color: #d4af37; text-decoration: none; margin: 0 10px;">راسلنا بريدياً</a> | 
+            <a href="https://www.facebook.com/abdelwahab.garments" target="_blank" style="color: #d4af37; text-decoration: none; margin: 0 10px;">صفحة الفيسبوك</a> | 
+            <a href="https://wa.me/201002002202" target="_blank" style="color: #d4af37; text-decoration: none; margin: 0 10px;">تواصل واتساب</a>
+        </div>
+        <p style="color: #636a79; text-align: center; font-size: 12px; margin-top: 15px; direction: rtl; width: 100%; display: block;">
+            جميع الحقوق محفوظة © 2026 Abdelwahab Garments - محمد عبد الوهاب
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
