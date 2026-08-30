@@ -176,7 +176,7 @@ st.markdown(
     }
 </style>
 """,
-    unsafe_html=True,
+    unsafe_allow_html=True,
 )
 
 
@@ -221,7 +221,7 @@ st.markdown(
         <div class="brand-subtitle">حاسبة استهلاك الأقمشة وتقدير الاحتياجات التشغيلية للمصانع</div>
     </div>
 """,
-    unsafe_html=True,
+    unsafe_allow_html=True,
 )
 
 # إدارة حالة التسجيل
@@ -230,7 +230,7 @@ if "user_registered" not in st.session_state:
 
 # 5. القسم الأول: تسجيل البيانات الأساسية
 if not st.session_state["user_registered"]:
-    st.markdown('<div class="custom-card">', unsafe_html=True)
+    st.markdown('<div class="custom-card">', unsafe_allow_html=True)
     st.subheader("بيانات التسجيل لتفعيل الحاسبة")
     st.caption("يرجى إدخال البيانات الأساسية للبدء في حساب احتياجات الأقمشة.")
 
@@ -275,11 +275,11 @@ if not st.session_state["user_registered"]:
                         pass
                 st.session_state["user_registered"] = True
                 st.rerun()
-    st.markdown("</div>", unsafe_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # 6. القسم الثاني: الحاسبة التشغيلية
 else:
-    st.markdown('<div class="custom-card">', unsafe_html=True)
+    st.markdown('<div class="custom-card">', unsafe_allow_html=True)
     st.subheader("معطيات أمر التصنيع")
 
     col_unit, col_qty = st.columns(2)
@@ -306,7 +306,7 @@ else:
                 value=250.0,
                 step=10.0,
             )
-            garment_cons_unit = garment_consumption / 1000.0  # تحويل لكيلو
+            garment_cons_unit = garment_consumption / 1000.0
         else:
             garment_cons_unit = st.number_input(
                 "استهلاك القطعة الصافي (متر)",
@@ -338,7 +338,7 @@ else:
             step=5.0,
         )
 
-    st.markdown("</div>", unsafe_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
     # الحسابات البرمجية
     net_fabric_needed = order_qty * garment_cons_unit
@@ -354,8 +354,8 @@ else:
     unit_label = "كيلوجرام" if "كيلوجرام" in unit_type else "متر"
 
     # عرض النتائج
-    st.markdown('<div class="custom-card">', unsafe_html=True)
-    st.subheader("نتائج التقدير والاحتياجات الإجمالية")
+    st.markdown('<div class="custom-card">', unsafe_allow_html=True)
+    st.subheader("نتائج التتقدير والاحتياجات الإجمالية")
 
     res_col1, res_col2 = st.columns(2)
 
@@ -375,7 +375,7 @@ else:
                 <div class="result-value" style="color:#d4af37;">{total_fabric_needed:,.2f} {unit_label}</div>
             </div>
         """,
-            unsafe_html=True,
+            unsafe_allow_html=True,
         )
 
     with res_col2:
@@ -394,12 +394,12 @@ else:
                 <div class="result-value">{cost_per_garment:,.2f}</div>
             </div>
         """,
-            unsafe_html=True,
+            unsafe_allow_html=True,
         )
 
-    st.markdown("</div>", unsafe_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# 7. الفوتر الرئيسي ذو التنسيق الاحترافي والأيقونات
+# 7. الفوتر الرئيسي
 st.markdown(
     """
     <div class="footer-container">
@@ -408,7 +408,6 @@ st.markdown(
             نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام. خبرة ميدانية فى صناعة الملابس الجاهزة منذ عام 2011، متخصص فى التخطيط والمتابعة وإدارة طلبات التصنيع.
         </div>
         <div class="social-row">
-            <!-- أيقونة الموقع الإلكتروني الرسمي -->
             <a href="https://abdelwahabgarments.com" target="_blank" class="social-btn" title="الموقع الرسمي">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10"></circle>
@@ -416,13 +415,11 @@ st.markdown(
                     <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                 </svg>
             </a>
-            <!-- أيقونة فيسبوك -->
             <a href="https://facebook.com" target="_blank" class="social-btn" title="فيسبوك">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                 </svg>
             </a>
-            <!-- أيقونة الواتساب -->
             <a href="https://wa.me/" target="_blank" class="social-btn" title="واتساب">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
@@ -434,5 +431,5 @@ st.markdown(
         </div>
     </div>
 """,
-    unsafe_html=True,
+    unsafe_allow_html=True,
 )
