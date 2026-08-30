@@ -539,7 +539,7 @@ else:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 7. الفوتر الرئيسي
+# 7. الفوتر الرئيسي (النسخة النهائية النظيفة)
 st.markdown(
     """
     <div class="footer-container">
@@ -548,32 +548,20 @@ st.markdown(
             نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام. خبرة ميدانية فى صناعة الملابس الجاهزة منذ عام 2011، متخصص فى التخطيط والمتابعة وإدارة طلبات التصنيع.
         </div>
         
-        <div style="margin-bottom: 15px; font-size: 14px; color: #d4af37; display: flex; align-items: center; gap: 8px;">
-            <span>البريد الإلكتروني: <a href="mailto:abdelwahab.garments@gmail.com" style="color: #ffffff; text-decoration: none;">abdelwahab.garments@gmail.com</a></span>
+        <div style="margin: 15px 0; font-size: 14px; color: #d4af37;">
+            البريد الإلكتروني: <a href="mailto:abdelwahab.garments@gmail.com" style="color: #ffffff; text-decoration: none;">abdelwahab.garments@gmail.com</a>
         </div>
 
-        <div class="social-row">
-            <a href="mailto:abdelwahab.garments@gmail.com" class="social-btn" title="إرسال بريد إلكتروني">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                    <polyline points="22,6 12,13 2,6"></polyline>
-                </svg>
-            </a>
-            <a href="https://www.facebook.com/abdelwahab.garments" target="_blank" class="social-btn" title="صفحة الفيسبوك">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-            </a>
-            <a href="https://wa.me/201002002202" target="_blank" class="social-btn" title="التواصل عبر الواتساب">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
-                </svg>
-            </a>
+        <div style="margin: 15px 0; display: flex; gap: 15px;">
+            <a href="mailto:abdelwahab.garments@gmail.com" style="background-color: #1c1f28; color: #d4af37; padding: 8px 16px; border-radius: 6px; text-decoration: none; border: 1px solid #2e3444; font-size: 14px;">إرسال بريد</a>
+            <a href="https://www.facebook.com/abdelwahab.garments" target="_blank" style="background-color: #1c1f28; color: #d4af37; padding: 8px 16px; border-radius: 6px; text-decoration: none; border: 1px solid #2e3444; font-size: 14px;">فيسبوك</a>
+            <a href="https://wa.me/201002002202" target="_blank" style="background-color: #1c1f28; color: #d4af37; padding: 8px 16px; border-radius: 6px; text-decoration: none; border: 1px solid #2e3444; font-size: 14px;">واتساب</a>
         </div>
+
         <div class="copyright">
             جميع الحقوق محفوظة © 2026 Abdelwahab Garments - محمد عبد الوهاب
         </div>
     </div>
-""",
+    """,
     unsafe_allow_html=True,
 )
