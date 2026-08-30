@@ -545,17 +545,17 @@ st.markdown("---")
 st.markdown(
     """
     <div style="width: 100%; text-align: center; margin: 0 auto; display: block;">
-        <h3 style="color: #d4af37; text-align: center; margin: 0 auto 5px auto; width: 100%; display: block;">Abdelwahab Garments</h3>
+        <h3 style="color: #d4af37; text-align: center; margin: 0 auto 5px auto; width: 100%; display: block; letter-spacing: 1px;">ABDELWAHAB GARMENTS</h3>
         <p style="color: #a0a6b8; text-align: center; font-size: 14px; margin: 0 auto 15px auto; width: 100%; display: block;">
             نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام.
         </p>
         <div style="text-align: center; direction: ltr; margin: 15px auto; width: 100%;">
             <a href="mailto:abdelwahab.garments@gmail.com" style="color: #d4af37; text-decoration: none; margin: 0 10px;">راسلنا بريدياً</a> | 
             <a href="https://www.facebook.com/abdelwahab.garments" target="_blank" style="color: #d4af37; text-decoration: none; margin: 0 10px;">صفحة الفيسبوك</a> | 
-            <a href="https://wa.me/201002002202" target="_blank" style="color: #d4af37; text-decoration: none; margin: 0 10px;">تواصل واتساب</a>
+            <a href="https://abdelwahabgarments.com/" target="_blank" style="color: #d4af37; text-decoration: none; margin: 0 10px;">الموقع الإلكتروني</a>
         </div>
         <p style="color: #636a79; text-align: center; font-size: 12px; margin-top: 15px; direction: rtl; width: 100%; display: block;">
-            جميع الحقوق محفوظة © 2026 Abdelwahab Garments - محمد عبد الوهاب
+            جميع الحقوق محفوظة © 2026 ABDELWAHAB GARMENTS - محمد عبد الوهاب
         </p>
     </div>
     """,
