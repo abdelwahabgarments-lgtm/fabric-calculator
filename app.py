@@ -545,7 +545,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style="width: 100%; text-align: center; margin: 0 auto; display: block;">
-        <h3 style="color: #d4af37; text-align: center; margin: 0 auto 5px auto; width: 100%; display: block; letter-spacing: 1px;">ABDELWAHAB GARMENTS</h3>
+        <div style="color: #d4af37; font-size: 20px; font-weight: 850; text-align: center; margin: 0 auto 8px auto; width: 100%; display: block; letter-spacing: 1px;">ABDELWAHAB GARMENTS</div>
         <p style="color: #a0a6b8; text-align: center; font-size: 14px; margin: 0 auto 15px auto; width: 100%; display: block;">
             نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام.
         </p>
