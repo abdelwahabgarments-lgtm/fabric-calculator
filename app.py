@@ -542,17 +542,13 @@ else:
 # الفوتر الرئيسي النهائي
 st.markdown("---")
 
-# استخدام أعمدة لعمل توسيط إجباري في نص الصفحة
-_, center_col, _ = st.columns([1, 3, 1])
-
-with center_col:
-    st.markdown(
-        "<h3 style='color: #d4af37; text-align: center; margin-bottom: 5px;'>Abdelwahab Garments</h3>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        "<p style='color: #a0a6b8; text-align: center; font-size: 14px;'>نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام.</p>",
-        unsafe_allow_html=True,
+st.markdown(
+    """
+    <div style="width: 100%; text-align: center; margin: 0 auto; display: block;">
+        <h3 style="color: #d4af37; text-align: center; margin: 0 auto 5px auto; width: 100%; display: block;">Abdelwahab Garments</h3>
+        <p style="color: #a0a6b8; text-align: center; font-size: 14px; margin: 0 auto 15px auto; width: 100%; display: block;">
+            نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام.
+        </p>
     )
 
     # الروابط جنب بعض في السنتر
