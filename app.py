@@ -544,15 +544,15 @@ st.markdown("---")
 
 st.markdown(
     """
-    <div style="direction: rtl; text-align: center; font-family: sans-serif; padding: 10px;">
-        <h3 style="color: #d4af37; margin-bottom: 8px; text-align: center;">Abdelwahab Garments</h3>
-        <p style="color: #a0a6b8; font-size: 14px; line-height: 1.6; max-width: 600px; margin: 0 auto 15px auto; text-align: center;">
+    <div style="width: 100%; text-align: center; direction: rtl; font-family: sans-serif; padding: 20px 0;">
+        <h3 style="color: #d4af37; margin: 0 0 10px 0; text-align: center; display: block;">Abdelwahab Garments</h3>
+        <p style="color: #a0a6b8; font-size: 14px; line-height: 1.6; margin: 0 auto 15px auto; max-width: 600px; text-align: center;">
             نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام.
         </p>
-        <div style="margin: 15px 0; display: flex; justify-content: center; gap: 25px; font-size: 14px; flex-wrap: wrap;">
-            <a href="mailto:abdelwahab.garments@gmail.com" style="color: #d4af37; text-decoration: none;">راسلنا بريدياً</a>
-            <a href="https://www.facebook.com/abdelwahab.garments" target="_blank" style="color: #d4af37; text-decoration: none;">صفحة الفيسبوك</a>
-            <a href="https://wa.me/201002002202" target="_blank" style="color: #d4af37; text-decoration: none;">تواصل واتساب</a>
+        <div style="margin: 15px auto; text-align: center;">
+            <a href="mailto:abdelwahab.garments@gmail.com" style="color: #d4af37; text-decoration: none; margin: 0 15px; font-size: 14px;">راسلنا بريدياً</a>
+            <a href="https://www.facebook.com/abdelwahab.garments" target="_blank" style="color: #d4af37; text-decoration: none; margin: 0 15px; font-size: 14px;">صفحة الفيسبوك</a>
+            <a href="https://wa.me/201002002202" target="_blank" style="color: #d4af37; text-decoration: none; margin: 0 15px; font-size: 14px;">تواصل واتساب</a>
         </div>
         <p style="color: #636a79; font-size: 12px; margin-top: 20px; text-align: center;">
             جميع الحقوق محفوظة © 2026 Abdelwahab Garments - محمد عبد الوهاب
