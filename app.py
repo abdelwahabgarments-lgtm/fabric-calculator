@@ -714,49 +714,78 @@ def update_customer_activity(customer: dict, calculation_id: str | None = None) 
 
 
 def record_calculation(customer: dict, result: dict) -> str:
+    """
+    Save the calculation itself first. Auxiliary updates (customer counters
+    and events) are best-effort and must never make a successful calculation
+    look unsaved.
+    """
     calculation_id = f"CALC-{dt.datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-    calc_sheet = get_worksheet("Calculations", CALCULATIONS_HEADERS)
 
-    calc_data = {
-        "Calculation ID": calculation_id,
-        "Date": _now_str(),
-        "Customer ID": customer.get("Customer ID", ""),
-        "Email": customer.get("Email", ""),
-        "Model ID / Name": result["model_id"],
-        "Fabric Type": result["fabric_type"],
-        "Fabric Name": result.get("fabric_name", ""),
-        "Calculation Type": result["calculation_type"],
-        "Order Quantity": result["order_qty"],
-        "Rack Length": result["rack_length"],
-        "Rack Length Unit": result["rack_length_unit"],
-        "Fabric Width": result.get("fabric_width", ""),
-        "GSM": result.get("gsm", ""),
-        "Pieces / Rack": result["pieces_per_rack"],
-        "Insurance %": result["insurance_pct"],
-        "Unit Price": result["unit_price"],
-        "Net Consumption / Piece": result["net_per_piece"],
-        "Net Requirement": result["net_total"],
-        "Insurance Quantity": result["insurance_qty"],
-        "Recommended Purchase": result["recommended_purchase"],
-        "Total Cost": result["total_cost"],
-        "Cost / Garment": result["cost_per_garment"],
-    }
+    # ------------------------------------------------------
+    # PRIMARY WRITE: this is the operation that defines whether
+    # the calculation is actually saved.
+    # ------------------------------------------------------
+    try:
+        calc_sheet = get_worksheet("Calculations", CALCULATIONS_HEADERS)
+        calc_data = {
+            "Calculation ID": calculation_id,
+            "Date": _now_str(),
+            "Customer ID": customer.get("Customer ID", ""),
+            "Email": customer.get("Email", ""),
+            "Model ID / Name": result["model_id"],
+            "Fabric Type": result["fabric_type"],
+            "Fabric Name": result.get("fabric_name", ""),
+            "Calculation Type": result["calculation_type"],
+            "Order Quantity": result["order_qty"],
+            "Rack Length": result["rack_length"],
+            "Rack Length Unit": result["rack_length_unit"],
+            "Fabric Width": result.get("fabric_width", ""),
+            "GSM": result.get("gsm", ""),
+            "Pieces / Rack": result["pieces_per_rack"],
+            "Insurance %": result["insurance_pct"],
+            "Unit Price": result["unit_price"],
+            "Net Consumption / Piece": result["net_per_piece"],
+            "Net Requirement": result["net_total"],
+            "Insurance Quantity": result["insurance_qty"],
+            "Recommended Purchase": result["recommended_purchase"],
+            "Total Cost": result["total_cost"],
+            "Cost / Garment": result["cost_per_garment"],
+        }
+        calc_headers = calc_sheet.row_values(1)
+        calc_sheet.append_row(
+            [calc_data.get(h, "") for h in calc_headers],
+            value_input_option="USER_ENTERED",
+        )
+    except Exception as exc:
+        raise RuntimeError(f"فشل حفظ سجل الحساب في ورقة Calculations: {exc}") from exc
 
-    calc_headers = calc_sheet.row_values(1)
-    calc_sheet.append_row([calc_data.get(h, "") for h in calc_headers], value_input_option="USER_ENTERED")
-    update_customer_activity(customer, calculation_id)
+    # ------------------------------------------------------
+    # SECONDARY WRITES: useful for analytics, but never allowed
+    # to invalidate an already-saved calculation.
+    # ------------------------------------------------------
+    try:
+        update_customer_activity(customer, calculation_id)
+    except Exception:
+        pass
 
-    events = get_worksheet("Events", EVENTS_HEADERS)
-    event_headers = events.row_values(1)
-    event_data = {
-        "Event ID": f"EVT-{uuid.uuid4().hex[:10].upper()}",
-        "Date": _now_str(),
-        "Customer ID": customer.get("Customer ID", ""),
-        "Email": customer.get("Email", ""),
-        "Event": "Calculation Completed",
-        "Details": f"{result['calculation_type']} | {calculation_id}",
-    }
-    events.append_row([event_data.get(h, "") for h in event_headers], value_input_option="USER_ENTERED")
+    try:
+        events = get_worksheet("Events", EVENTS_HEADERS)
+        event_headers = events.row_values(1)
+        event_data = {
+            "Event ID": f"EVT-{uuid.uuid4().hex[:10].upper()}",
+            "Date": _now_str(),
+            "Customer ID": customer.get("Customer ID", ""),
+            "Email": customer.get("Email", ""),
+            "Event": "Calculation Completed",
+            "Details": f"{result['calculation_type']} | {calculation_id}",
+        }
+        events.append_row(
+            [event_data.get(h, "") for h in event_headers],
+            value_input_option="USER_ENTERED",
+        )
+    except Exception:
+        pass
+
     return calculation_id
 
 
@@ -1212,8 +1241,10 @@ else:
                 )
                 st.success(f"تم حفظ العملية بنجاح — Calculation ID: {calculation_id}")
                 render_print_report(customer, result, calculation_id)
-            except Exception:
-                st.error("تم إجراء الحساب، لكن تعذر حفظ العملية في قاعدة البيانات. لم نعتبر العملية محفوظة.")
+            except Exception as exc:
+                st.error("تم الحساب، لكن لم يتم حفظ العملية في قاعدة البيانات.")
+                with st.expander("تفاصيل المشكلة", expanded=False):
+                    st.code(str(exc))
 
     else:
         st.markdown('<div class="model-chip"><strong>02</strong> منسوج · حساب دقيق</div>', unsafe_allow_html=True)
@@ -1307,8 +1338,10 @@ else:
                 )
                 st.success(f"تم حفظ العملية بنجاح — Calculation ID: {calculation_id}")
                 render_print_report(customer, result, calculation_id)
-            except Exception:
-                st.error("تم إجراء الحساب، لكن تعذر حفظ العملية في قاعدة البيانات. لم نعتبر العملية محفوظة.")
+            except Exception as exc:
+                st.error("تم الحساب، لكن لم يتم حفظ العملية في قاعدة البيانات.")
+                with st.expander("تفاصيل المشكلة", expanded=False):
+                    st.code(str(exc))
 
     st.markdown(
         '<div class="trust-note">ملاحظة تشغيلية: النتائج تعتمد على البيانات الفعلية التي تدخلها. التأمين هو هامش إضافي للشراء وليس هو نفسه فاقد الـ marker أو الهدر الفني للقص.</div>',
