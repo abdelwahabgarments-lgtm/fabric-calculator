@@ -2,6 +2,8 @@ import datetime as dt
 import re
 import uuid
 import html
+import time
+import random
 
 import gspread
 import streamlit as st
@@ -439,7 +441,7 @@ st.markdown(
 
 
 # ==========================================================
-# 3) Google Sheets data layer
+# 3) Google Sheets data layer — quota-safe architecture
 # ==========================================================
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -449,6 +451,7 @@ SPREADSHEET_ID = "1aYYZ9g52aCR8EFe0rxQtnPEDtjx_sqiTX7uNlRP8-pU"
 
 CUSTOMERS_SHEET_NAMES = ["العملاء", "Customers"]
 VISITS_SHEET_NAMES = ["سجل_الزيارات", "Visits"]
+
 CUSTOMERS_HEADERS = [
     "Customer ID",
     "Registration Date",
@@ -500,161 +503,183 @@ CALCULATIONS_HEADERS = [
     "Cost / Garment",
 ]
 
-EVENTS_HEADERS = [
-    "Event ID",
-    "Date",
-    "Customer ID",
-    "Email",
-    "Event",
-    "Details",
-]
-
 
 def _now_str() -> str:
     return dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _is_quota_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return "429" in text or "quota exceeded" in text or "resource_exhausted" in text
+
+
+def _api_call(fn, *args, **kwargs):
+    """Retry transient Google Sheets quota errors with exponential backoff."""
+    last_exc = None
+    for attempt in range(4):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            last_exc = exc
+            if not _is_quota_error(exc) or attempt == 3:
+                raise
+            # Google recommends truncated exponential backoff for 429 quota errors.
+            delay = min(8.0, (2 ** attempt) + random.uniform(0.2, 0.8))
+            time.sleep(delay)
+    raise last_exc
+
+
 @st.cache_resource
 def get_google_sheet():
-    """Create and cache the Google Sheets client resource."""
     if "gcp_service_account" not in st.secrets:
         raise RuntimeError("مفاتيح GCP غير موجودة في Secrets.")
-
     creds = Credentials.from_service_account_info(
         st.secrets["gcp_service_account"],
         scopes=SCOPES,
     )
     client = gspread.authorize(creds)
-    return client.open_by_key(SPREADSHEET_ID)
+    return _api_call(client.open_by_key, SPREADSHEET_ID)
 
 
-def get_existing_worksheet(names: list[str]):
-    """Return the first worksheet that exists from a list of accepted names."""
+@st.cache_resource
+def resolve_sheet_title(candidates: tuple[str, ...]):
+    """Resolve a sheet title once per app process instead of checking it on every action."""
     spreadsheet = get_google_sheet()
-    for name in names:
-        try:
-            return spreadsheet.worksheet(name)
-        except gspread.WorksheetNotFound:
-            continue
+    worksheets = _api_call(spreadsheet.worksheets)
+    titles = {ws.title for ws in worksheets}
+    for candidate in candidates:
+        if candidate in titles:
+            return candidate
     return None
 
 
-def _ensure_worksheet_capacity(worksheet, required_rows: int = 1000, required_cols: int = 1) -> None:
-    """Expand an existing Google Sheet grid before writing outside its limits."""
+def _ensure_worksheet_capacity(worksheet, required_rows: int = 2000, required_cols: int = 1) -> None:
     current_rows = int(getattr(worksheet, "row_count", 0) or 0)
     current_cols = int(getattr(worksheet, "col_count", 0) or 0)
     target_rows = max(current_rows, required_rows)
     target_cols = max(current_cols, required_cols)
-
     if target_rows != current_rows or target_cols != current_cols:
-        worksheet.resize(rows=target_rows, cols=target_cols)
+        _api_call(worksheet.resize, rows=target_rows, cols=target_cols)
 
 
-def get_worksheet(name: str, headers: list[str]):
-    """Return a worksheet and safely expand its grid before adding missing headers."""
+@st.cache_resource
+def get_prepared_worksheet(name: str, headers_tuple: tuple[str, ...]):
+    """Prepare each worksheet once. Normal calculations then require no sheet reads."""
     spreadsheet = get_google_sheet()
-    required_cols = max(len(headers), 10)
+    headers = list(headers_tuple)
 
     try:
-        worksheet = spreadsheet.worksheet(name)
+        worksheet = _api_call(spreadsheet.worksheet, name)
     except gspread.WorksheetNotFound:
-        worksheet = spreadsheet.add_worksheet(
+        worksheet = _api_call(
+            spreadsheet.add_worksheet,
             title=name,
             rows=2000,
-            cols=required_cols,
+            cols=max(len(headers), 10),
         )
-        worksheet.update("A1", [headers], value_input_option="USER_ENTERED")
-        return worksheet
+        _api_call(worksheet.update, "A1", [headers], value_input_option="USER_ENTERED")
+        return worksheet, tuple(headers)
 
-    existing_headers = worksheet.row_values(1)
-
-    # Always make sure the physical grid can hold all required columns.
     _ensure_worksheet_capacity(
         worksheet,
-        required_rows=max(getattr(worksheet, "row_count", 0), 2000),
-        required_cols=max(required_cols, len(existing_headers)),
+        required_rows=max(2000, int(getattr(worksheet, "row_count", 0) or 0)),
+        required_cols=max(len(headers), 10),
     )
 
+    # This header read happens only once per cached worksheet, not on every calculation.
+    existing_headers = list(_api_call(worksheet.row_values, 1))
     if not existing_headers:
-        worksheet.update("A1", [headers], value_input_option="USER_ENTERED")
-        return worksheet
+        _api_call(worksheet.update, "A1", [headers], value_input_option="USER_ENTERED")
+        return worksheet, tuple(headers)
 
-    missing_headers = [header for header in headers if header not in existing_headers]
-    final_cols = len(existing_headers) + len(missing_headers)
+    final_headers = existing_headers[:]
+    for header in headers:
+        if header not in final_headers:
+            final_headers.append(header)
 
-    # Expand again in case the existing sheet was narrower than the final schema.
-    _ensure_worksheet_capacity(
-        worksheet,
-        required_cols=max(required_cols, final_cols),
-    )
+    if final_headers != existing_headers:
+        _ensure_worksheet_capacity(
+            worksheet,
+            required_cols=max(len(final_headers), 10),
+        )
+        # One write for all missing headers, not one write per header.
+        _api_call(worksheet.update, "A1", [final_headers], value_input_option="USER_ENTERED")
 
-    for header in missing_headers:
-        next_col = len(existing_headers) + 1
-        worksheet.update_cell(1, next_col, header)
-        existing_headers.append(header)
+    return worksheet, tuple(final_headers)
 
-    return worksheet
+
+def get_prepared_named_worksheet(candidates: tuple[str, ...], headers: list[str]):
+    title = resolve_sheet_title(candidates)
+    if title is None:
+        title = candidates[0]
+    return get_prepared_worksheet(title, tuple(headers))
 
 
 def find_customer_by_email(email: str):
-    """Return customer dict if email exists, otherwise None."""
+    """One read per login. No customer-table reads occur during calculations."""
     email = normalize_email(email)
-    sheet = get_existing_worksheet(CUSTOMERS_SHEET_NAMES)
-    if sheet is None:
-        raise RuntimeError("لم يتم العثور على ورقة العملاء.")
-
-    rows = sheet.get_all_values()
+    sheet, _ = get_prepared_named_worksheet(tuple(CUSTOMERS_SHEET_NAMES), CUSTOMERS_HEADERS)
+    rows = _api_call(sheet.get_all_values)
     if not rows:
         return None
 
     headers = [str(h).strip() for h in rows[0]]
-    email_index = None
-    for idx, header in enumerate(headers):
-        if header.lower() == "email":
-            email_index = idx
-            break
-
-    # Backward compatibility with the old sheet if headers are Arabic.
+    email_index = next((i for i, h in enumerate(headers) if h.lower() == "email"), None)
     if email_index is None:
-        for idx, header in enumerate(headers):
-            if "mail" in header.lower() or "email" in header.lower() or "بريد" in header:
-                email_index = idx
-                break
-
+        email_index = next(
+            (i for i, h in enumerate(headers) if "mail" in h.lower() or "بريد" in h),
+            None,
+        )
     if email_index is None:
         raise RuntimeError("عمود البريد الإلكتروني غير موجود في ورقة العملاء.")
 
-    for values in rows[1:]:
+    aliases = {
+        "الاسم بالكامل": "Full Name",
+        "الاسم": "Full Name",
+        "البريد الإلكتروني": "Email",
+        "رقم الواتساب": "WhatsApp",
+        "رقم WhatsApp": "WhatsApp",
+        "الدولة": "Country",
+        "المحافظة / المنطقة": "Governorate",
+        "المحافظة": "Governorate",
+        "اسم المصنع أو البراند": "Factory / Brand",
+        "المسمى الوظيفي": "Job Title",
+    }
+
+    for row_number, values in enumerate(rows[1:], start=2):
         if email_index < len(values) and normalize_email(values[email_index]) == email:
-            row = {}
-            for idx, header in enumerate(headers):
-                row[header] = values[idx] if idx < len(values) else ""
-            # Normalize the keys expected by the application.
-            aliases = {
-                "الاسم بالكامل": "Full Name",
-                "الاسم": "Full Name",
-                "البريد الإلكتروني": "Email",
-                "رقم الواتساب": "WhatsApp",
-                "رقم WhatsApp": "WhatsApp",
-                "الدولة": "Country",
-                "المحافظة / المنطقة": "Governorate",
-                "المحافظة": "Governorate",
-                "اسم المصنع أو البراند": "Factory / Brand",
-                "المسمى الوظيفي": "Job Title",
-            }
+            row = {header: (values[i] if i < len(values) else "") for i, header in enumerate(headers)}
             for old_key, new_key in aliases.items():
                 if old_key in row and new_key not in row:
                     row[new_key] = row[old_key]
+            row["_row_number"] = row_number
+            row["_headers"] = tuple(headers)
             return row
     return None
 
 
-def create_customer(customer_data: dict) -> dict:
-    """Create a new customer and return the stored customer record."""
-    existing = find_customer_by_email(customer_data["email"])
-    if existing:
-        return existing
+def _customer_row_values(customer: dict, headers: tuple[str, ...]):
+    reverse_aliases = {
+        "الاسم بالكامل": "Full Name",
+        "البريد الإلكتروني": "Email",
+        "رقم الواتساب": "WhatsApp",
+        "الدولة": "Country",
+        "المحافظة": "Governorate",
+        "المحافظة / المنطقة": "Governorate",
+        "اسم المصنع أو البراند": "Factory / Brand",
+        "المسمى الوظيفي": "Job Title",
+    }
+    values = dict(customer)
+    for header in headers:
+        mapped = reverse_aliases.get(header)
+        if header not in values and mapped in values:
+            values[header] = values[mapped]
+    return [values.get(header, "") for header in headers]
 
+
+def create_customer(customer_data: dict) -> dict:
+    """Append one lead. Duplicate lookup is already performed before registration."""
+    sheet, headers = get_prepared_named_worksheet(tuple(CUSTOMERS_SHEET_NAMES), CUSTOMERS_HEADERS)
     customer_id = f"AWG-{uuid.uuid4().hex[:8].upper()}"
     now = _now_str()
     customer = {
@@ -674,33 +699,23 @@ def create_customer(customer_data: dict) -> dict:
         "Last Calculation": "",
         "Status": "Active",
     }
-
-    sheet = get_existing_worksheet(CUSTOMERS_SHEET_NAMES)
-    if sheet is None:
-        spreadsheet = get_google_sheet()
-        sheet = spreadsheet.add_worksheet(title="العملاء", rows=1000, cols=max(len(CUSTOMERS_HEADERS), 10))
-        sheet.update("A1", [CUSTOMERS_HEADERS], value_input_option="USER_ENTERED")
-    else:
-        # Keep the existing sheet/data and append any missing V2/V3 fields.
-        sheet = get_worksheet("العملاء" if sheet.title == "العملاء" else "Customers", CUSTOMERS_HEADERS)
-    sheet_headers = sheet.row_values(1)
-    sheet.append_row([customer.get(h, "") for h in sheet_headers], value_input_option="USER_ENTERED")
+    _api_call(
+        sheet.append_row,
+        _customer_row_values(customer, headers),
+        value_input_option="USER_ENTERED",
+    )
+    customer["_headers"] = headers
     return customer
 
 
 def record_visit(customer: dict, event_name: str = "Login") -> None:
-    now = _now_str()
-    visits = get_existing_worksheet(VISITS_SHEET_NAMES)
-    if visits is None:
-        spreadsheet = get_google_sheet()
-        visits = spreadsheet.add_worksheet(title="سجل_الزيارات", rows=2000, cols=len(VISITS_HEADERS))
-        visits.update("A1", [VISITS_HEADERS], value_input_option="USER_ENTERED")
-    else:
-        visits = get_worksheet("سجل_الزيارات" if visits.title == "سجل_الزيارات" else "Visits", VISITS_HEADERS)
-    visits.append_row(
+    """Append one visit without reading the Visits sheet during normal use."""
+    sheet, _ = get_prepared_named_worksheet(tuple(VISITS_SHEET_NAMES), VISITS_HEADERS)
+    _api_call(
+        sheet.append_row,
         [
             f"VIS-{uuid.uuid4().hex[:10].upper()}",
-            now,
+            _now_str(),
             customer.get("Customer ID", ""),
             customer.get("Email", ""),
             event_name,
@@ -709,114 +724,40 @@ def record_visit(customer: dict, event_name: str = "Login") -> None:
     )
 
 
-def update_customer_activity(customer: dict, calculation_id: str | None = None) -> None:
-    """Update last visit and calculation counters by Customer ID."""
-    sheet = get_existing_worksheet(CUSTOMERS_SHEET_NAMES)
-    if sheet is None:
-        return
-    sheet = get_worksheet("العملاء" if sheet.title == "العملاء" else "Customers", CUSTOMERS_HEADERS)
-    rows = sheet.get_all_values()
-    if not rows:
-        return
-
-    header = rows[0]
-    try:
-        id_col = header.index("Customer ID") + 1
-        last_visit_col = header.index("Last Visit") + 1
-        total_calc_col = header.index("Total Calculations") + 1
-        last_calc_col = header.index("Last Calculation") + 1
-    except ValueError:
-        return
-
-    for row_idx, row in enumerate(rows[1:], start=2):
-        if len(row) >= id_col and row[id_col - 1] == customer.get("Customer ID"):
-            sheet.update_cell(row_idx, last_visit_col, _now_str())
-            current_count = 0
-            if len(row) >= total_calc_col:
-                try:
-                    current_count = int(float(row[total_calc_col - 1] or 0))
-                except (ValueError, TypeError):
-                    current_count = 0
-            sheet.update_cell(row_idx, total_calc_col, current_count + (1 if calculation_id else 0))
-            if calculation_id:
-                sheet.update_cell(row_idx, last_calc_col, calculation_id)
-            break
-
-
 def record_calculation(customer: dict, result: dict) -> str:
-    """
-    Save the calculation itself first. Auxiliary updates (customer counters
-    and events) are best-effort and must never make a successful calculation
-    look unsaved.
-    """
+    """Save a calculation with exactly one write request and zero per-calculation reads."""
     calculation_id = f"CALC-{dt.datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+    calc_sheet, calc_headers = get_prepared_worksheet("Calculations", tuple(CALCULATIONS_HEADERS))
 
-    # ------------------------------------------------------
-    # PRIMARY WRITE: this is the operation that defines whether
-    # the calculation is actually saved.
-    # ------------------------------------------------------
-    try:
-        calc_sheet = get_worksheet("Calculations", CALCULATIONS_HEADERS)
-        calc_data = {
-            "Calculation ID": calculation_id,
-            "Date": _now_str(),
-            "Customer ID": customer.get("Customer ID", ""),
-            "Email": customer.get("Email", ""),
-            "Model ID / Name": result["model_id"],
-            "Fabric Type": result["fabric_type"],
-            "Fabric Name": result.get("fabric_name", ""),
-            "Calculation Type": result["calculation_type"],
-            "Order Quantity": result["order_qty"],
-            "Rack Length": result["rack_length"],
-            "Rack Length Unit": result["rack_length_unit"],
-            "Fabric Width": result.get("fabric_width", ""),
-            "GSM": result.get("gsm", ""),
-            "Pieces / Rack": result["pieces_per_rack"],
-            "Insurance %": result["insurance_pct"],
-            "Unit Price": result["unit_price"],
-            "Net Consumption / Piece": result["net_per_piece"],
-            "Net Requirement": result["net_total"],
-            "Insurance Quantity": result["insurance_qty"],
-            "Recommended Purchase": result["recommended_purchase"],
-            "Total Cost": result["total_cost"],
-            "Cost / Garment": result["cost_per_garment"],
-        }
-        calc_headers = calc_sheet.row_values(1)
-        _ensure_worksheet_capacity(calc_sheet, required_cols=len(calc_headers))
-        calc_sheet.append_row(
-            [calc_data.get(h, "") for h in calc_headers],
-            value_input_option="USER_ENTERED",
-        )
-    except Exception as exc:
-        raise RuntimeError(f"فشل حفظ سجل الحساب في ورقة Calculations: {exc}") from exc
-
-    # ------------------------------------------------------
-    # SECONDARY WRITES: useful for analytics, but never allowed
-    # to invalidate an already-saved calculation.
-    # ------------------------------------------------------
-    try:
-        update_customer_activity(customer, calculation_id)
-    except Exception:
-        pass
-
-    try:
-        events = get_worksheet("Events", EVENTS_HEADERS)
-        event_headers = events.row_values(1)
-        event_data = {
-            "Event ID": f"EVT-{uuid.uuid4().hex[:10].upper()}",
-            "Date": _now_str(),
-            "Customer ID": customer.get("Customer ID", ""),
-            "Email": customer.get("Email", ""),
-            "Event": "Calculation Completed",
-            "Details": f"{result['calculation_type']} | {calculation_id}",
-        }
-        events.append_row(
-            [event_data.get(h, "") for h in event_headers],
-            value_input_option="USER_ENTERED",
-        )
-    except Exception:
-        pass
-
+    calc_data = {
+        "Calculation ID": calculation_id,
+        "Date": _now_str(),
+        "Customer ID": customer.get("Customer ID", ""),
+        "Email": customer.get("Email", ""),
+        "Model ID / Name": result["model_id"],
+        "Fabric Type": result["fabric_type"],
+        "Fabric Name": result.get("fabric_name", ""),
+        "Calculation Type": result["calculation_type"],
+        "Order Quantity": result["order_qty"],
+        "Rack Length": result["rack_length"],
+        "Rack Length Unit": result["rack_length_unit"],
+        "Fabric Width": result.get("fabric_width", ""),
+        "GSM": result.get("gsm", ""),
+        "Pieces / Rack": result["pieces_per_rack"],
+        "Insurance %": result["insurance_pct"],
+        "Unit Price": result["unit_price"],
+        "Net Consumption / Piece": result["net_per_piece"],
+        "Net Requirement": result["net_total"],
+        "Insurance Quantity": result["insurance_qty"],
+        "Recommended Purchase": result["recommended_purchase"],
+        "Total Cost": result["total_cost"],
+        "Cost / Garment": result["cost_per_garment"],
+    }
+    _api_call(
+        calc_sheet.append_row,
+        [calc_data.get(h, "") for h in calc_headers],
+        value_input_option="USER_ENTERED",
+    )
     return calculation_id
 
 
@@ -1047,7 +988,6 @@ if not st.session_state["authenticated"]:
                     st.session_state["customer"] = existing_customer
                     st.session_state["authenticated"] = True
                     record_visit(existing_customer, "Login")
-                    update_customer_activity(existing_customer)
                     st.rerun()
                 else:
                     st.rerun()
@@ -1117,7 +1057,6 @@ if not st.session_state["authenticated"]:
                 try:
                     customer = create_customer(customer_data)
                     record_visit(customer, "Registration")
-                    update_customer_activity(customer)
                     st.session_state["customer"] = customer
                     st.session_state["authenticated"] = True
                     st.session_state["registration_email"] = ""
@@ -1233,13 +1172,14 @@ else:
             try:
                 calculation_id = record_calculation(customer, result)
                 st.session_state["last_calculation_id"] = calculation_id
-
-                st.session_state["last_calculation_id"] = calculation_id
                 st.session_state["last_result"] = result
                 st.session_state["show_print_report"] = False
                 st.success(f"تم حفظ العملية بنجاح — Calculation ID: {calculation_id}")
             except Exception as exc:
-                st.error("تم الحساب، لكن لم يتم حفظ العملية في قاعدة البيانات.")
+                if _is_quota_error(exc):
+                    st.error("تم إجراء الحساب، لكن قاعدة البيانات مشغولة مؤقتًا. لم يتم حفظ العملية. حاول مرة أخرى بعد لحظات.")
+                else:
+                    st.error("تم إجراء الحساب، لكن تعذر حفظ العملية في قاعدة البيانات. لم نعتبرها محفوظة.")
                 with st.expander("تفاصيل المشكلة", expanded=False):
                     st.code(str(exc))
 
@@ -1297,13 +1237,14 @@ else:
             try:
                 calculation_id = record_calculation(customer, result)
                 st.session_state["last_calculation_id"] = calculation_id
-
-                st.session_state["last_calculation_id"] = calculation_id
                 st.session_state["last_result"] = result
                 st.session_state["show_print_report"] = False
                 st.success(f"تم حفظ العملية بنجاح — Calculation ID: {calculation_id}")
             except Exception as exc:
-                st.error("تم الحساب، لكن لم يتم حفظ العملية في قاعدة البيانات.")
+                if _is_quota_error(exc):
+                    st.error("تم إجراء الحساب، لكن قاعدة البيانات مشغولة مؤقتًا. لم يتم حفظ العملية. حاول مرة أخرى بعد لحظات.")
+                else:
+                    st.error("تم إجراء الحساب، لكن تعذر حفظ العملية في قاعدة البيانات. لم نعتبرها محفوظة.")
                 with st.expander("تفاصيل المشكلة", expanded=False):
                     st.code(str(exc))
 
