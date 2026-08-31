@@ -1,10 +1,17 @@
 import datetime as dt
 import re
 import uuid
+import html
 
 import gspread
 import streamlit as st
 from google.oauth2.service_account import Credentials
+import streamlit.components.v1 as components
+
+try:
+    from weasyprint import HTML
+except Exception:
+    HTML = None
 
 
 # ==========================================================
@@ -217,7 +224,7 @@ st.markdown(
             border: 1px solid var(--line);
             border-radius: 12px;
             padding: 11px 13px;
-            min-height: 82px;
+            min-height: 68px;
         }
 
         .metric-card.primary {
@@ -275,134 +282,6 @@ st.markdown(
 
         .print-actions {
             margin: 8px 0 12px;
-        }
-
-        .print-report {
-            display: none;
-            background: #fff;
-            color: #15171b;
-            border: 1px solid #e2e2e2;
-            border-radius: 10px;
-            padding: 28px;
-            position: relative;
-            overflow: hidden;
-            direction: rtl;
-        }
-
-        .print-report::after {
-            content: 'ABDELWAHAB GARMENTS';
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%) rotate(-24deg);
-            font-size: 42px;
-            font-weight: 800;
-            letter-spacing: 3px;
-            color: rgba(70,70,70,.055);
-            white-space: nowrap;
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .print-inner {
-            position: relative;
-            z-index: 1;
-        }
-
-        .print-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 20px;
-            border-bottom: 2px solid #d4af37;
-            padding-bottom: 14px;
-            margin-bottom: 16px;
-        }
-
-        .print-brand {
-            color: #8a6a00;
-            font-size: 21px;
-            font-weight: 800;
-            letter-spacing: 1px;
-        }
-
-        .print-title {
-            font-size: 16px;
-            font-weight: 800;
-            margin-top: 3px;
-        }
-
-        .print-meta {
-            font-size: 11px;
-            color: #666;
-            line-height: 1.7;
-            text-align: left;
-        }
-
-        .print-section-title {
-            margin: 14px 0 8px;
-            font-size: 13px;
-            font-weight: 800;
-            color: #8a6a00;
-        }
-
-        .print-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 11px;
-        }
-
-        .print-table th, .print-table td {
-            border: 1px solid #e5e5e5;
-            padding: 7px 8px;
-            text-align: right;
-        }
-
-        .print-table th {
-            background: #f7f7f7;
-            font-weight: 700;
-        }
-
-        .print-total {
-            margin-top: 12px;
-            border: 2px solid #d4af37;
-            padding: 11px 12px;
-            border-radius: 8px;
-            font-weight: 800;
-            text-align: center;
-        }
-
-        .print-footer {
-            margin-top: 18px;
-            padding-top: 10px;
-            border-top: 1px solid #e5e5e5;
-            font-size: 10px;
-            color: #666;
-            line-height: 1.8;
-            text-align: center;
-        }
-
-        .stCaption, [data-testid="stCaptionContainer"] {
-            margin-top: 0 !important;
-            margin-bottom: 0 !important;
-        }
-
-        @media print {
-            @page { margin: 10mm; size: A4 portrait; }
-            body * { visibility: hidden !important; }
-            .print-report, .print-report * { visibility: visible !important; }
-            .print-report {
-                display: block !important;
-                position: absolute !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 100% !important;
-                border: none !important;
-                border-radius: 0 !important;
-                box-shadow: none !important;
-                margin: 0 !important;
-                padding: 0 !important;
-            }
         }
 
         .footer {
@@ -532,7 +411,7 @@ st.markdown(
             }
             .metric-card {
                 padding: 9px 10px;
-                min-height: 74px;
+                min-height: 62px;
             }
             .metric-label {
                 font-size: 10px;
@@ -578,6 +457,7 @@ CUSTOMERS_HEADERS = [
     "Country",
     "Governorate",
     "Factory / Brand",
+    "Client Type",
     "Job Title",
     "Newsletter",
     "Lead Source",
@@ -601,6 +481,7 @@ CALCULATIONS_HEADERS = [
     "Email",
     "Model ID / Name",
     "Fabric Type",
+    "Fabric Name",
     "Calculation Type",
     "Order Quantity",
     "Rack Length",
@@ -647,14 +528,30 @@ def get_google_sheet():
 
 
 def get_worksheet(name: str, headers: list[str]):
-    """Return a worksheet and create it with headers if missing."""
+    """Return a worksheet and add any missing headers without breaking existing data."""
     spreadsheet = get_google_sheet()
     try:
-        return spreadsheet.worksheet(name)
+        worksheet = spreadsheet.worksheet(name)
     except gspread.WorksheetNotFound:
-        worksheet = spreadsheet.add_worksheet(title=name, rows=1000, cols=max(len(headers), 10))
-        worksheet.append_row(headers, value_input_option="USER_ENTERED")
+        worksheet = spreadsheet.add_worksheet(
+            title=name,
+            rows=1000,
+            cols=max(len(headers), 10),
+        )
+        worksheet.update("A1", [headers], value_input_option="USER_ENTERED")
         return worksheet
+
+    existing_headers = worksheet.row_values(1)
+    if not existing_headers:
+        worksheet.update("A1", [headers], value_input_option="USER_ENTERED")
+        return worksheet
+
+    for header in headers:
+        if header not in existing_headers:
+            next_col = len(existing_headers) + 1
+            worksheet.update_cell(1, next_col, header)
+            existing_headers.append(header)
+    return worksheet
 
 
 def find_customer_by_email(email: str):
@@ -678,28 +575,7 @@ def create_customer(customer_data: dict) -> dict:
 
     customer_id = f"AWG-{uuid.uuid4().hex[:8].upper()}"
     now = _now_str()
-    row = [
-        customer_id,
-        now,
-        now,
-        customer_data["name"],
-        customer_data["email"],
-        customer_data["phone"],
-        customer_data["country"],
-        customer_data["governorate"],
-        customer_data["factory_brand"],
-        customer_data["job_title"],
-        "نعم" if customer_data["newsletter"] else "لا",
-        "Consumption Model",
-        0,
-        "",
-        "Active",
-    ]
-
-    sheet = get_worksheet("Customers", CUSTOMERS_HEADERS)
-    sheet.append_row(row, value_input_option="USER_ENTERED")
-
-    return {
+    customer = {
         "Customer ID": customer_id,
         "Registration Date": now,
         "Last Visit": now,
@@ -709,6 +585,7 @@ def create_customer(customer_data: dict) -> dict:
         "Country": customer_data["country"],
         "Governorate": customer_data["governorate"],
         "Factory / Brand": customer_data["factory_brand"],
+        "Client Type": customer_data["client_type"],
         "Job Title": customer_data["job_title"],
         "Newsletter": "نعم" if customer_data["newsletter"] else "لا",
         "Lead Source": "Consumption Model",
@@ -716,6 +593,11 @@ def create_customer(customer_data: dict) -> dict:
         "Last Calculation": "",
         "Status": "Active",
     }
+
+    sheet = get_worksheet("Customers", CUSTOMERS_HEADERS)
+    sheet_headers = sheet.row_values(1)
+    sheet.append_row([customer.get(h, "") for h in sheet_headers], value_input_option="USER_ENTERED")
+    return customer
 
 
 def record_visit(customer: dict, event_name: str = "Login") -> None:
@@ -768,46 +650,46 @@ def record_calculation(customer: dict, result: dict) -> str:
     calculation_id = f"CALC-{dt.datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
     calc_sheet = get_worksheet("Calculations", CALCULATIONS_HEADERS)
 
-    row = [
-        calculation_id,
-        _now_str(),
-        customer.get("Customer ID", ""),
-        customer.get("Email", ""),
-        result["model_id"],
-        result["fabric_type"],
-        result["calculation_type"],
-        result["order_qty"],
-        result["rack_length"],
-        result["rack_length_unit"],
-        result.get("fabric_width", ""),
-        result.get("gsm", ""),
-        result["pieces_per_rack"],
-        result["insurance_pct"],
-        result["unit_price"],
-        result["net_per_piece"],
-        result["net_total"],
-        result["insurance_qty"],
-        result["recommended_purchase"],
-        result["total_cost"],
-        result["cost_per_garment"],
-    ]
-    calc_sheet.append_row(row, value_input_option="USER_ENTERED")
+    calc_data = {
+        "Calculation ID": calculation_id,
+        "Date": _now_str(),
+        "Customer ID": customer.get("Customer ID", ""),
+        "Email": customer.get("Email", ""),
+        "Model ID / Name": result["model_id"],
+        "Fabric Type": result["fabric_type"],
+        "Fabric Name": result.get("fabric_name", ""),
+        "Calculation Type": result["calculation_type"],
+        "Order Quantity": result["order_qty"],
+        "Rack Length": result["rack_length"],
+        "Rack Length Unit": result["rack_length_unit"],
+        "Fabric Width": result.get("fabric_width", ""),
+        "GSM": result.get("gsm", ""),
+        "Pieces / Rack": result["pieces_per_rack"],
+        "Insurance %": result["insurance_pct"],
+        "Unit Price": result["unit_price"],
+        "Net Consumption / Piece": result["net_per_piece"],
+        "Net Requirement": result["net_total"],
+        "Insurance Quantity": result["insurance_qty"],
+        "Recommended Purchase": result["recommended_purchase"],
+        "Total Cost": result["total_cost"],
+        "Cost / Garment": result["cost_per_garment"],
+    }
 
+    calc_headers = calc_sheet.row_values(1)
+    calc_sheet.append_row([calc_data.get(h, "") for h in calc_headers], value_input_option="USER_ENTERED")
     update_customer_activity(customer, calculation_id)
 
     events = get_worksheet("Events", EVENTS_HEADERS)
-    events.append_row(
-        [
-            f"EVT-{uuid.uuid4().hex[:10].upper()}",
-            _now_str(),
-            customer.get("Customer ID", ""),
-            customer.get("Email", ""),
-            "Calculation Completed",
-            f"{result['calculation_type']} | {calculation_id}",
-        ],
-        value_input_option="USER_ENTERED",
-    )
-
+    event_headers = events.row_values(1)
+    event_data = {
+        "Event ID": f"EVT-{uuid.uuid4().hex[:10].upper()}",
+        "Date": _now_str(),
+        "Customer ID": customer.get("Customer ID", ""),
+        "Email": customer.get("Email", ""),
+        "Event": "Calculation Completed",
+        "Details": f"{result['calculation_type']} | {calculation_id}",
+    }
+    events.append_row([event_data.get(h, "") for h in event_headers], value_input_option="USER_ENTERED")
     return calculation_id
 
 
@@ -836,64 +718,146 @@ def safe_float(value: float) -> float:
     return float(value or 0.0)
 
 
-def render_print_report(customer: dict, result: dict, calculation_id: str) -> None:
-    """Render a compact, branded report that is formatted for browser printing."""
+def build_report_html(customer: dict, result: dict, calculation_id: str) -> str:
+    """Build a clean A4 report used by both print preview and PDF export."""
+    esc = lambda v: html.escape(str(v if v is not None else ""))
     is_knit = result["fabric_type"] == "تريكو"
-    piece_value = result["piece_display_value"]
-    piece_unit = result["piece_display_unit"]
-    total_unit = result["total_display_unit"]
-    insurance_unit = result["insurance_display_unit"]
-    purchase_unit = result["purchase_display_unit"]
-    st.markdown(
-        f"""
-        <div class="print-actions">
-            <a href="#" onclick="window.print(); return false;" style="display:inline-block;padding:10px 18px;border-radius:9px;background:#d4af37;color:#0b0d10;text-decoration:none;font-weight:800;font-size:13px;">🖨️ طباعة تقرير الاستهلاك</a>
-        </div>
-        <div class="print-report">
-          <div class="print-inner">
-            <div class="print-head">
-              <div>
-                <div class="print-brand">ABDELWAHAB GARMENTS</div>
-                <div class="print-title">تقرير استهلاك القماش</div>
-              </div>
-              <div class="print-meta">
-                رقم التقرير: {calculation_id}<br>
-                التاريخ: {result['calculation_date']}
-              </div>
-            </div>
+    fabric_name = result.get("fabric_name") or "—"
 
-            <div class="print-section-title">بيانات الموديل والقماش</div>
-            <table class="print-table">
-              <tr><th>رقم / اسم الموديل</th><td>{result['model_id']}</td><th>نوع القماش</th><td>{result['fabric_type']}</td></tr>
-              <tr><th>العميل</th><td>{customer.get('Factory / Brand','')}</td><th>المستخدم</th><td>{customer.get('Full Name','')}</td></tr>
-            </table>
+    if is_knit:
+        inputs_rows = f"""
+        <tr><th>كمية الأمر</th><td>{result['order_qty']:,} قطعة</td><th>طول الراق الفعلي</th><td>{result['rack_length']:,.2f} سم</td></tr>
+        <tr><th>عدد القطع</th><td>{result['pieces_per_rack']:,} قطعة</td><th>عرض القماش</th><td>{result['fabric_width']:,.0f} سم</td></tr>
+        <tr><th>وزن المتر المربع (GSM)</th><td>{result['gsm']:,.0f}</td><th>نسبة التأمين</th><td>{result['insurance_pct']:.1f}%</td></tr>
+        <tr><th>سعر الكيلو</th><td>{result['unit_price']:,.2f} جنيه / كجم</td><th>طريقة الحساب</th><td>حساب دقيق بالبيانات المدخلة</td></tr>
+        """
+        consumption_rows = f"""
+        <tr><th>الاستهلاك الصافي للقطعة</th><td>{result['piece_display_value']:,.1f} جرام</td><th>إجمالي الاستهلاك الصافي</th><td>{result['net_total']:,.2f} كجم</td></tr>
+        <tr><th>كمية التأمين</th><td>{result['insurance_qty']:,.2f} كجم</td><th>كمية الشراء المقترحة</th><td>{result['recommended_purchase']:,.2f} كجم</td></tr>
+        """
+    else:
+        inputs_rows = f"""
+        <tr><th>كمية الأمر</th><td>{result['order_qty']:,} قطعة</td><th>طول الراق الفعلي</th><td>{result['rack_length']:,.2f} متر</td></tr>
+        <tr><th>عدد القطع</th><td>{result['pieces_per_rack']:,} قطعة</td><th>نسبة التأمين</th><td>{result['insurance_pct']:.1f}%</td></tr>
+        <tr><th>سعر المتر</th><td>{result['unit_price']:,.2f} جنيه / متر</td><th>طريقة الحساب</th><td>حساب دقيق بالبيانات المدخلة</td></tr>
+        """
+        consumption_rows = f"""
+        <tr><th>الاستهلاك الصافي للقطعة</th><td>{result['piece_display_value']:,.4f} متر</td><th>إجمالي الاستهلاك الصافي</th><td>{result['net_total']:,.2f} متر</td></tr>
+        <tr><th>كمية التأمين</th><td>{result['insurance_qty']:,.2f} متر</td><th>كمية الشراء المقترحة</th><td>{result['recommended_purchase']:,.2f} متر</td></tr>
+        """
 
-            <div class="print-section-title">بيانات التشغيل</div>
-            <table class="print-table">
-              <tr><th>كمية الأمر</th><td>{result['order_qty']:,} قطعة</td><th>طول الراق الفعلي</th><td>{result['rack_length']:,.2f} {result['rack_length_unit']}</td></tr>
-              <tr><th>عدد القطع في الراق</th><td>{result['pieces_per_rack']:,} قطعة</td><th>عرض القماش</th><td>{result.get('fabric_width_display','—')}</td></tr>
-              {'<tr><th>وزن المتر المربع (GSM)</th><td>'+f"{result['gsm']:,.0f}"+'</td><th>نسبة التأمين</th><td>'+f"{result['insurance_pct']:.1f}%"+'</td></tr>' if is_knit else '<tr><th>نسبة التأمين</th><td>'+f"{result['insurance_pct']:.1f}%"+'</td><th>سعر المتر</th><td>'+f"{result['unit_price']:,.2f} جنيه / متر"+'</td></tr>'}
-              {'<tr><th>سعر الكيلو</th><td>'+f"{result['unit_price']:,.2f} جنيه / كجم"+'</td><th>طريقة الحساب</th><td>من واقع الراق الفعلي</td></tr>' if is_knit else '<tr><th>طريقة الحساب</th><td>من واقع الراق الفعلي</td><th>وحدة الاستهلاك</th><td>متر</td></tr>'}
-            </table>
+    return f"""
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<style>
+@page {{ size:A4; margin:11mm; }}
+* {{ box-sizing:border-box; }}
+body {{ font-family:'Noto Sans Arabic','Noto Sans',Arial,sans-serif; margin:0; color:#1b1e23; background:#fff; direction:rtl; }}
+.report {{ position:relative; overflow:hidden; min-height:260mm; padding:4mm; }}
+.report:before {{ content:'ABDELWAHAB GARMENTS'; position:absolute; top:45%; left:5%; transform:rotate(-24deg); font-size:38px; font-weight:800; letter-spacing:2px; color:rgba(110,90,35,.055); white-space:nowrap; z-index:0; }}
+.content {{ position:relative; z-index:1; }}
+.header {{ display:flex; justify-content:space-between; gap:18px; align-items:flex-start; border-bottom:2px solid #d4af37; padding-bottom:12px; }}
+.brand {{ font-size:21px; font-weight:800; color:#8b6a06; letter-spacing:.8px; }}
+.title {{ font-size:15px; font-weight:800; margin-top:3px; }}
+.meta {{ font-size:10px; color:#666; line-height:1.75; text-align:left; }}
+h2 {{ font-size:12px; color:#8b6a06; margin:15px 0 7px; }}
+table {{ width:100%; border-collapse:collapse; font-size:10px; }}
+th,td {{ border:1px solid #dfdfdf; padding:6px 7px; vertical-align:middle; }}
+th {{ width:20%; background:#f7f7f7; font-weight:700; }}
+td {{ width:30%; }}
+.result {{ margin-top:10px; border:1px solid #d4af37; border-radius:7px; padding:9px; }}
+.result-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:7px; }}
+.result-box {{ border:1px solid #e5e5e5; border-radius:6px; padding:8px; }}
+.result-label {{ font-size:9px; color:#727272; }}
+.result-value {{ font-size:15px; font-weight:800; margin-top:3px; }}
+.result-main {{ border-color:#d4af37; background:#fffaf0; }}
+.total {{ margin-top:9px; text-align:center; padding:9px; border:2px solid #d4af37; border-radius:7px; font-size:13px; font-weight:800; }}
+.footer {{ margin-top:18px; padding-top:9px; border-top:1px solid #ddd; font-size:9px; color:#666; line-height:1.8; text-align:center; }}
+.print-button {{ display:inline-block; margin-bottom:10px; padding:9px 14px; border-radius:7px; background:#d4af37; color:#111; text-decoration:none; font-size:12px; font-weight:800; border:0; cursor:pointer; }}
+@media print {{ .print-button {{ display:none; }} body {{ background:#fff; }} .report {{ min-height:auto; }} }}
+</style>
+</head>
+<body>
+<div class="report">
+<div class="content">
+<button class="print-button" onclick="window.print()">🖨 طباعة التقرير</button>
+<div class="header">
+<div>
+<div class="brand">ABDELWAHAB GARMENTS</div>
+<div class="title">تقرير استهلاك القماش</div>
+</div>
+<div class="meta">رقم التقرير: {esc(calculation_id)}<br>التاريخ: {esc(result['calculation_date'])}</div>
+</div>
 
-            <div class="print-section-title">نتائج الاستهلاك</div>
-            <table class="print-table">
-              <tr><th>الاستهلاك الصافي للقطعة</th><td>{piece_value:,.4f} {piece_unit}</td><th>إجمالي الاستهلاك الصافي</th><td>{result['net_total']:,.2f} {total_unit}</td></tr>
-              <tr><th>كمية التأمين</th><td>{result['insurance_qty']:,.2f} {insurance_unit}</td><th>كمية الشراء المقترحة</th><td>{result['recommended_purchase']:,.2f} {purchase_unit}</td></tr>
-              <tr><th>إجمالي تكلفة القماش</th><td>{result['total_cost']:,.2f} جنيه</td><th>تكلفة القماش / القطعة</th><td>{result['cost_per_garment']:,.2f} جنيه</td></tr>
-            </table>
+<h2>بيانات الموديل والخامة</h2>
+<table>
+<tr><th>رقم / اسم الموديل</th><td>{esc(result['model_id'])}</td><th>نوع القماش</th><td>{esc(result['fabric_type'])}</td></tr>
+<tr><th>اسم الخامة</th><td>{esc(fabric_name)}</td><th>العميل</th><td>{esc(customer.get('Factory / Brand',''))}</td></tr>
+<tr><th>المستخدم</th><td>{esc(customer.get('Full Name',''))}</td><th>صفة العميل</th><td>{esc(customer.get('Client Type',''))}</td></tr>
+</table>
 
-            <div class="print-total">الكمية المقترحة للشراء: {result['recommended_purchase']:,.2f} {purchase_unit}</div>
+<h2>بيانات التشغيل</h2>
+<table>{inputs_rows}</table>
 
-            <div class="print-footer">
-              ABDELWAHAB GARMENTS · abdelwahabgarments.com · abdelwahab.garments@gmail.com · Facebook: Abdelwahab Garments
-              <br>هذا التقرير صادر من Consumption Model ويُستخدم كمرجع للحساب المبني على بيانات الراق الفعلي المدخلة من المستخدم.
-            </div>
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+<h2>نتائج الاستهلاك</h2>
+<div class="result">
+<div class="result-grid">
+<div class="result-box result-main"><div class="result-label">الاستهلاك الصافي للقطعة</div><div class="result-value">{result['piece_display_value']:,.1f} {result['piece_display_unit'] if is_knit else result['piece_display_unit']}</div></div>
+<div class="result-box"><div class="result-label">إجمالي الاستهلاك الصافي</div><div class="result-value">{result['net_total']:,.2f} {result['total_display_unit']}</div></div>
+<div class="result-box"><div class="result-label">كمية التأمين</div><div class="result-value">{result['insurance_qty']:,.2f} {result['insurance_display_unit']}</div></div>
+<div class="result-box result-main"><div class="result-label">كمية الشراء المقترحة</div><div class="result-value">{result['recommended_purchase']:,.2f} {result['purchase_display_unit']}</div></div>
+</div>
+</div>
+
+<h2>التكلفة</h2>
+<table>
+<tr><th>سعر الوحدة</th><td>{result['unit_price']:,.2f} {result['price_unit']}</td><th>إجمالي تكلفة القماش</th><td>{result['total_cost']:,.2f} جنيه</td></tr>
+<tr><th>تكلفة القماش / القطعة</th><td>{result['cost_per_garment']:,.2f} جنيه</td><th>نسبة التأمين</th><td>{result['insurance_pct']:.1f}%</td></tr>
+</table>
+<div class="total">الكمية المقترحة للشراء: {result['recommended_purchase']:,.2f} {result['purchase_display_unit']}</div>
+
+<div class="footer">
+<strong>ABDELWAHAB GARMENTS</strong><br>
+abdelwahabgarments.com · abdelwahab.garments@gmail.com · Facebook: Abdelwahab Garments
+<br>هذا التقرير صادر من Consumption Model بناءً على بيانات التشغيل المدخلة وحُفظ برقم مرجعي {esc(calculation_id)}.
+</div>
+</div>
+</div>
+</body>
+</html>
+"""
+
+
+def make_pdf(report_html: str):
+    """Return PDF bytes using WeasyPrint when available."""
+    if HTML is None:
+        return None
+    return HTML(string=report_html).write_pdf()
+
+
+def render_print_report(customer: dict, result: dict, calculation_id: str) -> None:
+    report_html = build_report_html(customer, result, calculation_id)
+    pdf_bytes = make_pdf(report_html)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        # Actual print action is inside a dedicated print-ready document.
+        st.markdown("**التقرير الجاهز للطباعة**")
+    with c2:
+        if pdf_bytes:
+            st.download_button(
+                "⬇️ تحميل التقرير PDF",
+                data=pdf_bytes,
+                file_name=f"{calculation_id}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+        else:
+            st.warning("تعذر تجهيز PDF لأن مكتبة إنشاء PDF غير متاحة في بيئة التشغيل.")
+
+    components.html(report_html, height=930, scrolling=True)
 
 
 # ==========================================================
@@ -906,7 +870,7 @@ st.markdown(
             <div>
                 <div class="eyebrow">GARMENTS PLANNING TOOL</div>
                 <div class="brand-title">ABDELWAHAB GARMENTS</div>
-                <div class="brand-subtitle">Consumption Model — نموذج احترافي لحساب استهلاك الأقمشة من واقع الراق الفعلي</div>
+                <div class="brand-subtitle">Consumption Model — نموذج احترافي لحساب استهلاك الأقمشة</div>
             </div>
             <div class="system-status"><span>●</span> SYSTEM ONLINE</div>
         </div>
@@ -984,17 +948,28 @@ if not st.session_state["authenticated"]:
                 governorate = st.text_input("المحافظة / المنطقة *")
             with c2:
                 factory_brand = st.text_input("اسم المصنع أو البراند *")
+                client_type = st.selectbox(
+                    "صفة العميل *",
+                    [
+                        "اختر الصفة...",
+                        "صاحب مصنع",
+                        "صاحب براند",
+                        "موظف / مدير داخل مصنع أو براند",
+                        "استشاري / مقدم خدمة",
+                        "أخرى",
+                    ],
+                )
                 job_title = st.selectbox(
                     "الوظيفة / المسمى الوظيفي *",
                     [
                         "اختر المسمى الوظيفي...",
-                        "صاحب مصنع / البراند",
                         "مدير إنتاج",
                         "مدير تخطيط ومتابعة",
                         "مدير جودة",
                         "مهندس تخطيط ومتابعة",
                         "مصمم / باترونيست",
                         "مسؤول مشتريات",
+                        "مالك / مؤسس",
                         "أخرى",
                     ],
                 )
@@ -1008,6 +983,8 @@ if not st.session_state["authenticated"]:
         if create_btn:
             if not full_name.strip() or not phone.strip() or not country.strip() or not governorate.strip() or not factory_brand.strip():
                 st.error("يرجى استكمال جميع الحقول المطلوبة.")
+            elif client_type == "اختر الصفة...":
+                st.error("يرجى اختيار صفة العميل.")
             elif job_title == "اختر المسمى الوظيفي...":
                 st.error("يرجى اختيار المسمى الوظيفي.")
             elif not valid_phone(phone):
@@ -1020,6 +997,7 @@ if not st.session_state["authenticated"]:
                     "country": country.strip(),
                     "governorate": governorate.strip(),
                     "factory_brand": factory_brand.strip(),
+                    "client_type": client_type,
                     "job_title": job_title,
                     "newsletter": newsletter,
                 }
@@ -1049,7 +1027,7 @@ else:
             f"""
             <div class="welcome-card">
                 <div class="welcome-title">أهلًا بك، {customer.get('Full Name', 'مستخدم')}</div>
-                <div class="welcome-meta">{customer.get('Factory / Brand', '')} · {customer.get('Job Title', '')} · {customer.get('Country', '')} / {customer.get('Governorate', '')}</div>
+                <div class="welcome-meta">{customer.get('Factory / Brand', '')} · {customer.get('Client Type', '')} · {customer.get('Job Title', '')} · {customer.get('Country', '')} / {customer.get('Governorate', '')}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1069,20 +1047,21 @@ else:
     # ======================================================
     st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.markdown('<div class="section-kicker">CONSUMPTION ENGINE</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">حاسبة الاستهلاك الفعلي من واقع الراق</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">حاسبة استهلاك الأقمشة</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-description">أدخل بيانات الموديل والراق الفعلي. ستظهر الحاسبة المناسبة حسب نوع القماش، وتحفظ كل عملية حساب مع بيانات العميل كمرجع تشغيلي.</div>',
+        '<div class="section-description">أدخل بيانات الموديل والخامة وبيانات التشغيل. ستظهر طريقة الحساب المناسبة حسب نوع القماش، وتحفظ كل عملية حساب مع بيانات العميل كمرجع تشغيلي.</div>',
         unsafe_allow_html=True,
     )
 
     model_c1, model_c2 = st.columns(2)
     with model_c1:
-        model_id = st.text_input("رقم الموديل / اسم الموديل *", placeholder="مثال: POLO-047")
+        model_id = st.text_input("رقم الموديل / اسم الموديل", placeholder="مثال: POLO-047 (اختياري)")
     with model_c2:
         fabric_type = st.selectbox("نوع القماش *", ["تريكو", "منسوج"])
+    fabric_name = st.text_input("اسم الخامة (English)", placeholder="Example: Jersey / Denim", help="حقل اختياري لتعريف الخامة مثل Jersey أو Denim.")
 
     if fabric_type == "تريكو":
-        st.markdown('<div class="model-chip"><strong>01</strong> تريكو · حساب من الراق الفعلي</div>', unsafe_allow_html=True)
+        st.markdown('<div class="model-chip"><strong>01</strong> تريكو · حساب دقيق</div>', unsafe_allow_html=True)
         with st.form("knit_form"):
             c1, c2 = st.columns(2)
             with c1:
@@ -1099,9 +1078,6 @@ else:
             calculate_knit = st.form_submit_button("حساب استهلاك التريكو")
 
         if calculate_knit:
-            if not model_id.strip():
-                st.error("يرجى إدخال رقم الموديل / اسم الموديل أولًا.")
-                st.stop()
             # cm × cm × GSM → kg
             net_per_piece = (rack_length * fabric_width * gsm) / (pieces_per_rack * 10_000_000.0)
             net_total = order_qty * net_per_piece
@@ -1113,7 +1089,8 @@ else:
             result = {
                 "model_id": model_id.strip(),
                 "fabric_type": "تريكو",
-                "calculation_type": "Knitwear - Actual Rack",
+                "fabric_name": fabric_name.strip(),
+                "calculation_type": "Knitwear - Accurate",
                 "order_qty": order_qty,
                 "rack_length": rack_length,
                 "rack_length_unit": "cm",
@@ -1183,25 +1160,21 @@ else:
                 st.error("تم إجراء الحساب، لكن تعذر حفظ العملية في قاعدة البيانات. لم نعتبر العملية محفوظة.")
 
     else:
-        st.markdown('<div class="model-chip"><strong>02</strong> منسوج · حساب من الراق الفعلي</div>', unsafe_allow_html=True)
+        st.markdown('<div class="model-chip"><strong>02</strong> منسوج · حساب دقيق</div>', unsafe_allow_html=True)
         with st.form("woven_form"):
             c1, c2 = st.columns(2)
             with c1:
                 order_qty_w = st.number_input("كمية الأمر (قطعة)", min_value=1, value=1000, step=50, key="woven_qty")
                 rack_length_m = st.number_input("طول الراق الفعلي (متر)", min_value=0.1, value=12.5, step=0.5, key="woven_rack_length")
-                fabric_width_w = st.number_input("عرض القماش (سم)", min_value=1.0, value=150.0, step=5.0, key="woven_width")
             with c2:
                 pieces_per_rack_w = st.number_input("عدد القطع في الراق", min_value=1, value=8, step=1, key="woven_pieces")
                 insurance_pct_w = st.number_input("نسبة التأمين (%)", min_value=0.0, max_value=30.0, value=5.0, step=0.5, key="woven_insurance")
                 unit_price_w = st.number_input("سعر المتر (جنيه)", min_value=0.0, value=90.0, step=5.0, key="woven_price")
-            st.caption("طول الراق الفعلي هو طول الـ lay المستخدم فعليًا، وعدد القطع هو الناتج الفعلي للراق.")
+            st.caption("طول الراق الفعلي هو طول الـ lay المستخدم فعليًا، وعدد القطع هو الناتج الفعلي لكل راق.")
 
             calculate_woven = st.form_submit_button("حساب استهلاك المنسوج")
 
         if calculate_woven:
-            if not model_id.strip():
-                st.error("يرجى إدخال رقم الموديل / اسم الموديل أولًا.")
-                st.stop()
             net_per_piece_m = rack_length_m / pieces_per_rack_w
             net_total_m = order_qty_w * net_per_piece_m
             insurance_qty_m = net_total_m * (insurance_pct_w / 100.0)
@@ -1212,12 +1185,12 @@ else:
             result = {
                 "model_id": model_id.strip(),
                 "fabric_type": "منسوج",
-                "calculation_type": "Woven - Actual Rack",
+                "fabric_name": fabric_name.strip(),
+                "calculation_type": "Woven - Accurate",
                 "order_qty": order_qty_w,
                 "rack_length": rack_length_m,
                 "rack_length_unit": "m",
-                "fabric_width": fabric_width_w,
-                "fabric_width_display": f"{fabric_width_w:,.0f} سم",
+                "fabric_width": "",
                 "gsm": "",
                 "pieces_per_rack": pieces_per_rack_w,
                 "insurance_pct": insurance_pct_w,
@@ -1282,7 +1255,7 @@ else:
                 st.error("تم إجراء الحساب، لكن تعذر حفظ العملية في قاعدة البيانات. لم نعتبر العملية محفوظة.")
 
     st.markdown(
-        '<div class="trust-note">ملاحظة تشغيلية: النتائج تعتمد على البيانات الفعلية التي تدخلها عن الراق. التأمين هو هامش إضافي للشراء وليس هو نفسه فاقد الـ marker أو الهدر الفني للقص.</div>',
+        '<div class="trust-note">ملاحظة تشغيلية: النتائج تعتمد على البيانات الفعلية التي تدخلها. التأمين هو هامش إضافي للشراء وليس هو نفسه فاقد الـ marker أو الهدر الفني للقص.</div>',
         unsafe_allow_html=True,
     )
     st.markdown('</div>', unsafe_allow_html=True)
