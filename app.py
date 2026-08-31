@@ -539,30 +539,60 @@ def get_existing_worksheet(names: list[str]):
     return None
 
 
+def _ensure_worksheet_capacity(worksheet, required_rows: int = 1000, required_cols: int = 1) -> None:
+    """Expand an existing Google Sheet grid before writing outside its limits."""
+    current_rows = int(getattr(worksheet, "row_count", 0) or 0)
+    current_cols = int(getattr(worksheet, "col_count", 0) or 0)
+    target_rows = max(current_rows, required_rows)
+    target_cols = max(current_cols, required_cols)
+
+    if target_rows != current_rows or target_cols != current_cols:
+        worksheet.resize(rows=target_rows, cols=target_cols)
+
+
 def get_worksheet(name: str, headers: list[str]):
-    """Return a worksheet and add any missing headers without breaking existing data."""
+    """Return a worksheet and safely expand its grid before adding missing headers."""
     spreadsheet = get_google_sheet()
+    required_cols = max(len(headers), 10)
+
     try:
         worksheet = spreadsheet.worksheet(name)
     except gspread.WorksheetNotFound:
         worksheet = spreadsheet.add_worksheet(
             title=name,
-            rows=1000,
-            cols=max(len(headers), 10),
+            rows=2000,
+            cols=required_cols,
         )
         worksheet.update("A1", [headers], value_input_option="USER_ENTERED")
         return worksheet
 
     existing_headers = worksheet.row_values(1)
+
+    # Always make sure the physical grid can hold all required columns.
+    _ensure_worksheet_capacity(
+        worksheet,
+        required_rows=max(getattr(worksheet, "row_count", 0), 2000),
+        required_cols=max(required_cols, len(existing_headers)),
+    )
+
     if not existing_headers:
         worksheet.update("A1", [headers], value_input_option="USER_ENTERED")
         return worksheet
 
-    for header in headers:
-        if header not in existing_headers:
-            next_col = len(existing_headers) + 1
-            worksheet.update_cell(1, next_col, header)
-            existing_headers.append(header)
+    missing_headers = [header for header in headers if header not in existing_headers]
+    final_cols = len(existing_headers) + len(missing_headers)
+
+    # Expand again in case the existing sheet was narrower than the final schema.
+    _ensure_worksheet_capacity(
+        worksheet,
+        required_cols=max(required_cols, final_cols),
+    )
+
+    for header in missing_headers:
+        next_col = len(existing_headers) + 1
+        worksheet.update_cell(1, next_col, header)
+        existing_headers.append(header)
+
     return worksheet
 
 
@@ -752,6 +782,7 @@ def record_calculation(customer: dict, result: dict) -> str:
             "Cost / Garment": result["cost_per_garment"],
         }
         calc_headers = calc_sheet.row_values(1)
+        _ensure_worksheet_capacity(calc_sheet, required_cols=len(calc_headers))
         calc_sheet.append_row(
             [calc_data.get(h, "") for h in calc_headers],
             value_input_option="USER_ENTERED",
