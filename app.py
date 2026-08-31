@@ -965,24 +965,19 @@ def make_pdf(report_html: str):
 
 
 def render_print_report(customer: dict, result: dict, calculation_id: str) -> None:
+    """Show the print-ready report only after the user explicitly requests it."""
     report_html = build_report_html(customer, result, calculation_id)
     pdf_bytes = make_pdf(report_html)
 
-    c1, c2 = st.columns(2)
-    with c1:
-        # Actual print action is inside a dedicated print-ready document.
-        st.markdown("**التقرير الجاهز للطباعة**")
-    with c2:
-        if pdf_bytes:
-            st.download_button(
-                "⬇️ تحميل التقرير PDF",
-                data=pdf_bytes,
-                file_name=f"{calculation_id}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
-        else:
-            st.warning("تعذر تجهيز PDF لأن مكتبة إنشاء PDF غير متاحة في بيئة التشغيل.")
+    if pdf_bytes:
+        st.download_button(
+            "⬇️ تحميل التقرير PDF",
+            data=pdf_bytes,
+            file_name=f"{calculation_id}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            key=f"pdf_{calculation_id}",
+        )
 
     components.html(report_html, height=930, scrolling=True)
 
@@ -1016,6 +1011,8 @@ for key, default in {
     "login_error": "",
     "registration_email": "",
     "last_calculation_id": None,
+    "last_result": None,
+    "show_print_report": False,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -1154,6 +1151,8 @@ else:
             st.session_state["authenticated"] = False
             st.session_state["customer"] = None
             st.session_state["last_calculation_id"] = None
+            st.session_state["last_result"] = None
+            st.session_state["show_print_report"] = False
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
@@ -1235,43 +1234,10 @@ else:
                 calculation_id = record_calculation(customer, result)
                 st.session_state["last_calculation_id"] = calculation_id
 
-                st.markdown('<div class="result-grid">', unsafe_allow_html=True)
-                st.markdown(
-                    f'<div class="metric-card primary"><div class="metric-label">الاستهلاك الصافي للقطعة</div><div class="metric-value gold">{net_per_piece * 1000.0:,.1f} جرام</div></div>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    f'<div class="metric-card"><div class="metric-label">إجمالي الاستهلاك الصافي</div><div class="metric-value">{net_total:,.2f} كجم</div></div>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    f'<div class="metric-card"><div class="metric-label">كمية التأمين</div><div class="metric-value">{insurance_qty:,.2f} كجم</div><div class="metric-sub">{insurance_pct:.1f}%</div></div>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    f'<div class="metric-card primary"><div class="metric-label">كمية الشراء المقترحة</div><div class="metric-value gold">{recommended_purchase:,.2f} كجم</div></div>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown('</div>', unsafe_allow_html=True)
-
-                c1, c2 = st.columns(2)
-                with c1:
-                    st.markdown(
-                        f'<div class="metric-card"><div class="metric-label">إجمالي تكلفة القماش</div><div class="metric-value">{total_cost:,.2f} جنيه</div></div>',
-                        unsafe_allow_html=True,
-                    )
-                with c2:
-                    st.markdown(
-                        f'<div class="metric-card"><div class="metric-label">نصيب القطعة من تكلفة القماش</div><div class="metric-value">{cost_per_garment:,.2f} جنيه</div></div>',
-                        unsafe_allow_html=True,
-                    )
-
-                st.markdown(
-                    '<div class="formula-note"><strong>منهج الحساب:</strong> مساحة الراق الفعلي × GSM ÷ عدد القطع في الراق = الوزن الصافي، ثم تضاف نسبة التأمين لتحديد كمية الشراء المقترحة.</div>',
-                    unsafe_allow_html=True,
-                )
+                st.session_state["last_calculation_id"] = calculation_id
+                st.session_state["last_result"] = result
+                st.session_state["show_print_report"] = False
                 st.success(f"تم حفظ العملية بنجاح — Calculation ID: {calculation_id}")
-                render_print_report(customer, result, calculation_id)
             except Exception as exc:
                 st.error("تم الحساب، لكن لم يتم حفظ العملية في قاعدة البيانات.")
                 with st.expander("تفاصيل المشكلة", expanded=False):
@@ -1332,47 +1298,73 @@ else:
                 calculation_id = record_calculation(customer, result)
                 st.session_state["last_calculation_id"] = calculation_id
 
-                st.markdown('<div class="result-grid">', unsafe_allow_html=True)
-                st.markdown(
-                    f'<div class="metric-card primary"><div class="metric-label">الاستهلاك الصافي للقطعة</div><div class="metric-value gold">{net_per_piece_m:,.4f} متر</div></div>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    f'<div class="metric-card"><div class="metric-label">إجمالي الاستهلاك الصافي</div><div class="metric-value">{net_total_m:,.2f} متر</div></div>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    f'<div class="metric-card"><div class="metric-label">كمية التأمين</div><div class="metric-value">{insurance_qty_m:,.2f} متر</div><div class="metric-sub">{insurance_pct_w:.1f}%</div></div>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    f'<div class="metric-card primary"><div class="metric-label">كمية الشراء المقترحة</div><div class="metric-value gold">{recommended_purchase_m:,.2f} متر</div></div>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown('</div>', unsafe_allow_html=True)
-
-                c1, c2 = st.columns(2)
-                with c1:
-                    st.markdown(
-                        f'<div class="metric-card"><div class="metric-label">إجمالي تكلفة القماش</div><div class="metric-value">{total_cost_w:,.2f} جنيه</div></div>',
-                        unsafe_allow_html=True,
-                    )
-                with c2:
-                    st.markdown(
-                        f'<div class="metric-card"><div class="metric-label">نصيب القطعة من تكلفة القماش</div><div class="metric-value">{cost_per_garment_w:,.2f} جنيه</div></div>',
-                        unsafe_allow_html=True,
-                    )
-
-                st.markdown(
-                    '<div class="formula-note"><strong>منهج الحساب:</strong> طول الراق الفعلي ÷ عدد القطع في الراق = الاستهلاك الصافي للقطعة، ثم تضاف نسبة التأمين لتحديد كمية الشراء المقترحة.</div>',
-                    unsafe_allow_html=True,
-                )
+                st.session_state["last_calculation_id"] = calculation_id
+                st.session_state["last_result"] = result
+                st.session_state["show_print_report"] = False
                 st.success(f"تم حفظ العملية بنجاح — Calculation ID: {calculation_id}")
-                render_print_report(customer, result, calculation_id)
             except Exception as exc:
                 st.error("تم الحساب، لكن لم يتم حفظ العملية في قاعدة البيانات.")
                 with st.expander("تفاصيل المشكلة", expanded=False):
                     st.code(str(exc))
+
+    # ======================================================
+    # 9.1) Latest saved result + explicit print action
+    # ======================================================
+    last_result = st.session_state.get("last_result")
+    last_calculation_id = st.session_state.get("last_calculation_id")
+
+    if last_result and last_calculation_id:
+        is_last_knit = last_result.get("fabric_type") == "تريكو"
+
+        st.markdown('<div class="result-grid">', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="metric-card primary"><div class="metric-label">الاستهلاك الصافي للقطعة</div><div class="metric-value gold">{last_result["piece_display_value"]:,.1f} {last_result["piece_display_unit"]}</div></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">إجمالي الاستهلاك الصافي</div><div class="metric-value">{last_result["net_total"]:,.2f} {last_result["total_display_unit"]}</div></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<div class="metric-card"><div class="metric-label">كمية التأمين</div><div class="metric-value">{last_result["insurance_qty"]:,.2f} {last_result["insurance_display_unit"]}</div><div class="metric-sub">{last_result["insurance_pct"]:.1f}%</div></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<div class="metric-card primary"><div class="metric-label">كمية الشراء المقترحة</div><div class="metric-value gold">{last_result["recommended_purchase"]:,.2f} {last_result["purchase_display_unit"]}</div></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown(
+                f'<div class="metric-card"><div class="metric-label">إجمالي تكلفة القماش</div><div class="metric-value">{last_result["total_cost"]:,.2f} جنيه</div></div>',
+                unsafe_allow_html=True,
+            )
+        with c2:
+            st.markdown(
+                f'<div class="metric-card"><div class="metric-label">نصيب القطعة من تكلفة القماش</div><div class="metric-value">{last_result["cost_per_garment"]:,.2f} جنيه</div></div>',
+                unsafe_allow_html=True,
+            )
+
+        if is_last_knit:
+            formula_text = 'مساحة الراق الفعلي × GSM ÷ عدد القطع في الراق = الوزن الصافي، ثم تضاف نسبة التأمين لتحديد كمية الشراء المقترحة.'
+        else:
+            formula_text = 'طول الراق الفعلي ÷ عدد القطع في الراق = الاستهلاك الصافي للقطعة، ثم تضاف نسبة التأمين لتحديد كمية الشراء المقترحة.'
+
+        st.markdown(
+            f'<div class="formula-note"><strong>منهج الحساب:</strong> {formula_text}</div>',
+            unsafe_allow_html=True,
+        )
+
+        st.markdown('<div class="print-actions">', unsafe_allow_html=True)
+        if st.button("🖨 طباعة التقرير", key=f"print_report_{last_calculation_id}", use_container_width=True):
+            st.session_state["show_print_report"] = True
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        if st.session_state.get("show_print_report", False):
+            render_print_report(customer, last_result, last_calculation_id)
 
     st.markdown(
         '<div class="trust-note">ملاحظة تشغيلية: النتائج تعتمد على البيانات الفعلية التي تدخلها. التأمين هو هامش إضافي للشراء وليس هو نفسه فاقد الـ marker أو الهدر الفني للقص.</div>',
