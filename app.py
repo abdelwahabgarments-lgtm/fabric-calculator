@@ -61,9 +61,9 @@ st.markdown(
         }
 
         .block-container {
-            max-width: 1180px !important;
-            padding-top: 2rem !important;
-            padding-bottom: 3rem !important;
+            max-width: 1120px !important;
+            padding-top: 1.25rem !important;
+            padding-bottom: 2rem !important;
         }
 
         h1, h2, h3, h4, h5, h6,
@@ -207,17 +207,17 @@ st.markdown(
 
         .result-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
             margin-top: 10px;
         }
 
         .metric-card {
             background: var(--panel-2);
             border: 1px solid var(--line);
-            border-radius: 14px;
-            padding: 15px;
-            min-height: 108px;
+            border-radius: 12px;
+            padding: 11px 13px;
+            min-height: 82px;
         }
 
         .metric-card.primary {
@@ -232,12 +232,13 @@ st.markdown(
         }
 
         .metric-value {
-            margin-top: 7px;
+            margin-top: 5px;
             color: #fff;
-            font-size: 24px;
+            font-size: 19px;
             font-weight: 800;
             direction: ltr;
             text-align: right;
+            line-height: 1.25;
         }
 
         .metric-value.gold {
@@ -269,7 +270,139 @@ st.markdown(
             color: #87909d;
             font-size: 11px;
             line-height: 1.8;
+            margin-top: 10px;
+        }
+
+        .print-actions {
+            margin: 8px 0 12px;
+        }
+
+        .print-report {
+            display: none;
+            background: #fff;
+            color: #15171b;
+            border: 1px solid #e2e2e2;
+            border-radius: 10px;
+            padding: 28px;
+            position: relative;
+            overflow: hidden;
+            direction: rtl;
+        }
+
+        .print-report::after {
+            content: 'ABDELWAHAB GARMENTS';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) rotate(-24deg);
+            font-size: 42px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            color: rgba(70,70,70,.055);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .print-inner {
+            position: relative;
+            z-index: 1;
+        }
+
+        .print-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            border-bottom: 2px solid #d4af37;
+            padding-bottom: 14px;
+            margin-bottom: 16px;
+        }
+
+        .print-brand {
+            color: #8a6a00;
+            font-size: 21px;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+
+        .print-title {
+            font-size: 16px;
+            font-weight: 800;
+            margin-top: 3px;
+        }
+
+        .print-meta {
+            font-size: 11px;
+            color: #666;
+            line-height: 1.7;
+            text-align: left;
+        }
+
+        .print-section-title {
+            margin: 14px 0 8px;
+            font-size: 13px;
+            font-weight: 800;
+            color: #8a6a00;
+        }
+
+        .print-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        .print-table th, .print-table td {
+            border: 1px solid #e5e5e5;
+            padding: 7px 8px;
+            text-align: right;
+        }
+
+        .print-table th {
+            background: #f7f7f7;
+            font-weight: 700;
+        }
+
+        .print-total {
             margin-top: 12px;
+            border: 2px solid #d4af37;
+            padding: 11px 12px;
+            border-radius: 8px;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        .print-footer {
+            margin-top: 18px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e5e5;
+            font-size: 10px;
+            color: #666;
+            line-height: 1.8;
+            text-align: center;
+        }
+
+        .stCaption, [data-testid="stCaptionContainer"] {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+
+        @media print {
+            @page { margin: 10mm; size: A4 portrait; }
+            body * { visibility: hidden !important; }
+            .print-report, .print-report * { visibility: visible !important; }
+            .print-report {
+                display: block !important;
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                border: none !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
         }
 
         .footer {
@@ -369,24 +502,55 @@ st.markdown(
         }
 
         @media (max-width: 900px) {
-            .result-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
             .brand-row {
                 flex-direction: column;
                 align-items: flex-start;
+                gap: 10px;
+            }
+            .panel {
+                padding: 18px;
             }
         }
 
         @media (max-width: 560px) {
             .result-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
             }
             .brand-title {
-                font-size: 25px;
+                font-size: 23px;
+            }
+            .brand-subtitle {
+                font-size: 12px;
             }
             .panel {
+                padding: 14px;
+                border-radius: 14px;
+            }
+            .section-title {
+                font-size: 18px;
+            }
+            .metric-card {
+                padding: 9px 10px;
+                min-height: 74px;
+            }
+            .metric-label {
+                font-size: 10px;
+            }
+            .metric-value {
+                font-size: 15px;
+            }
+            .metric-sub {
+                font-size: 9px;
+            }
+            .print-report {
                 padding: 18px;
+            }
+            .print-head {
+                flex-direction: column;
+            }
+            .print-meta {
+                text-align: right;
             }
         }
     </style>
@@ -435,6 +599,8 @@ CALCULATIONS_HEADERS = [
     "Date",
     "Customer ID",
     "Email",
+    "Model ID / Name",
+    "Fabric Type",
     "Calculation Type",
     "Order Quantity",
     "Rack Length",
@@ -607,6 +773,8 @@ def record_calculation(customer: dict, result: dict) -> str:
         _now_str(),
         customer.get("Customer ID", ""),
         customer.get("Email", ""),
+        result["model_id"],
+        result["fabric_type"],
         result["calculation_type"],
         result["order_qty"],
         result["rack_length"],
@@ -666,6 +834,66 @@ def valid_phone(value: str) -> bool:
 
 def safe_float(value: float) -> float:
     return float(value or 0.0)
+
+
+def render_print_report(customer: dict, result: dict, calculation_id: str) -> None:
+    """Render a compact, branded report that is formatted for browser printing."""
+    is_knit = result["fabric_type"] == "تريكو"
+    piece_value = result["piece_display_value"]
+    piece_unit = result["piece_display_unit"]
+    total_unit = result["total_display_unit"]
+    insurance_unit = result["insurance_display_unit"]
+    purchase_unit = result["purchase_display_unit"]
+    st.markdown(
+        f"""
+        <div class="print-actions">
+            <a href="#" onclick="window.print(); return false;" style="display:inline-block;padding:10px 18px;border-radius:9px;background:#d4af37;color:#0b0d10;text-decoration:none;font-weight:800;font-size:13px;">🖨️ طباعة تقرير الاستهلاك</a>
+        </div>
+        <div class="print-report">
+          <div class="print-inner">
+            <div class="print-head">
+              <div>
+                <div class="print-brand">ABDELWAHAB GARMENTS</div>
+                <div class="print-title">تقرير استهلاك القماش</div>
+              </div>
+              <div class="print-meta">
+                رقم التقرير: {calculation_id}<br>
+                التاريخ: {result['calculation_date']}
+              </div>
+            </div>
+
+            <div class="print-section-title">بيانات الموديل والقماش</div>
+            <table class="print-table">
+              <tr><th>رقم / اسم الموديل</th><td>{result['model_id']}</td><th>نوع القماش</th><td>{result['fabric_type']}</td></tr>
+              <tr><th>العميل</th><td>{customer.get('Factory / Brand','')}</td><th>المستخدم</th><td>{customer.get('Full Name','')}</td></tr>
+            </table>
+
+            <div class="print-section-title">بيانات التشغيل</div>
+            <table class="print-table">
+              <tr><th>كمية الأمر</th><td>{result['order_qty']:,} قطعة</td><th>طول الراق الفعلي</th><td>{result['rack_length']:,.2f} {result['rack_length_unit']}</td></tr>
+              <tr><th>عدد القطع في الراق</th><td>{result['pieces_per_rack']:,} قطعة</td><th>عرض القماش</th><td>{result.get('fabric_width_display','—')}</td></tr>
+              {'<tr><th>وزن المتر المربع (GSM)</th><td>'+f"{result['gsm']:,.0f}"+'</td><th>نسبة التأمين</th><td>'+f"{result['insurance_pct']:.1f}%"+'</td></tr>' if is_knit else '<tr><th>نسبة التأمين</th><td>'+f"{result['insurance_pct']:.1f}%"+'</td><th>سعر المتر</th><td>'+f"{result['unit_price']:,.2f} جنيه / متر"+'</td></tr>'}
+              {'<tr><th>سعر الكيلو</th><td>'+f"{result['unit_price']:,.2f} جنيه / كجم"+'</td><th>طريقة الحساب</th><td>من واقع الراق الفعلي</td></tr>' if is_knit else '<tr><th>طريقة الحساب</th><td>من واقع الراق الفعلي</td><th>وحدة الاستهلاك</th><td>متر</td></tr>'}
+            </table>
+
+            <div class="print-section-title">نتائج الاستهلاك</div>
+            <table class="print-table">
+              <tr><th>الاستهلاك الصافي للقطعة</th><td>{piece_value:,.4f} {piece_unit}</td><th>إجمالي الاستهلاك الصافي</th><td>{result['net_total']:,.2f} {total_unit}</td></tr>
+              <tr><th>كمية التأمين</th><td>{result['insurance_qty']:,.2f} {insurance_unit}</td><th>كمية الشراء المقترحة</th><td>{result['recommended_purchase']:,.2f} {purchase_unit}</td></tr>
+              <tr><th>إجمالي تكلفة القماش</th><td>{result['total_cost']:,.2f} جنيه</td><th>تكلفة القماش / القطعة</th><td>{result['cost_per_garment']:,.2f} جنيه</td></tr>
+            </table>
+
+            <div class="print-total">الكمية المقترحة للشراء: {result['recommended_purchase']:,.2f} {purchase_unit}</div>
+
+            <div class="print-footer">
+              ABDELWAHAB GARMENTS · abdelwahabgarments.com · abdelwahab.garments@gmail.com · Facebook: Abdelwahab Garments
+              <br>هذا التقرير صادر من Consumption Model ويُستخدم كمرجع للحساب المبني على بيانات الراق الفعلي المدخلة من المستخدم.
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 # ==========================================================
@@ -843,31 +1071,37 @@ else:
     st.markdown('<div class="section-kicker">CONSUMPTION ENGINE</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-title">حاسبة الاستهلاك الفعلي من واقع الراق</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-description">اختر نوع القماش وأدخل بيانات الراق الفعلي. النموذج يحتفظ بنتيجة كل عملية حساب ضمن سجل العميل.</div>',
+        '<div class="section-description">أدخل بيانات الموديل والراق الفعلي. ستظهر الحاسبة المناسبة حسب نوع القماش، وتحفظ كل عملية حساب مع بيانات العميل كمرجع تشغيلي.</div>',
         unsafe_allow_html=True,
     )
 
-    knit_tab, woven_tab = st.tabs(["التريكو — Knitwear", "المنسوج — Woven"])
+    model_c1, model_c2 = st.columns(2)
+    with model_c1:
+        model_id = st.text_input("رقم الموديل / اسم الموديل *", placeholder="مثال: POLO-047")
+    with model_c2:
+        fabric_type = st.selectbox("نوع القماش *", ["تريكو", "منسوج"])
 
-    with knit_tab:
+    if fabric_type == "تريكو":
         st.markdown('<div class="model-chip"><strong>01</strong> تريكو · حساب من الراق الفعلي</div>', unsafe_allow_html=True)
         with st.form("knit_form"):
-            c1, c2, c3 = st.columns(3)
+            c1, c2 = st.columns(2)
             with c1:
-                order_qty = st.number_input("كمية الأمر (قطعة)", min_value=1, value=1000, step=50)
-                rack_length = st.number_input("طول الراق الفعلي (سم)", min_value=1.0, value=650.0, step=10.0)
-                fabric_width = st.number_input("عرض القماش (سم)", min_value=1.0, value=180.0, step=5.0)
+                order_qty = st.number_input("كمية الأمر (قطعة)", min_value=1, value=1000, step=50, key="knit_qty")
+                rack_length = st.number_input("طول الراق الفعلي (سم)", min_value=1.0, value=650.0, step=10.0, key="knit_rack_length")
+                fabric_width = st.number_input("عرض القماش (سم)", min_value=1.0, value=180.0, step=5.0, key="knit_width")
+                gsm = st.number_input("وزن المتر المربع (GSM)", min_value=1.0, value=200.0, step=10.0, key="knit_gsm")
             with c2:
-                gsm = st.number_input("وزن القماش GSM", min_value=1.0, value=200.0, step=10.0)
-                pieces_per_rack = st.number_input("عدد القطع في الراق", min_value=1, value=10, step=1)
-                insurance_pct = st.number_input("نسبة التأمين (%)", min_value=0.0, max_value=30.0, value=5.0, step=0.5)
-            with c3:
-                unit_price = st.number_input("سعر الكيلو (جنيه)", min_value=0.0, value=120.0, step=5.0)
+                pieces_per_rack = st.number_input("عدد القطع في الراق", min_value=1, value=10, step=1, key="knit_pieces")
+                insurance_pct = st.number_input("نسبة التأمين (%)", min_value=0.0, max_value=30.0, value=5.0, step=0.5, key="knit_insurance")
+                unit_price = st.number_input("سعر الكيلو (جنيه)", min_value=0.0, value=120.0, step=5.0, key="knit_price")
                 st.caption("التأمين يضاف فوق الاستهلاك الصافي لتحديد كمية الشراء المقترحة.")
 
             calculate_knit = st.form_submit_button("حساب استهلاك التريكو")
 
         if calculate_knit:
+            if not model_id.strip():
+                st.error("يرجى إدخال رقم الموديل / اسم الموديل أولًا.")
+                st.stop()
             # cm × cm × GSM → kg
             net_per_piece = (rack_length * fabric_width * gsm) / (pieces_per_rack * 10_000_000.0)
             net_total = order_qty * net_per_piece
@@ -877,11 +1111,14 @@ else:
             cost_per_garment = total_cost / order_qty
 
             result = {
+                "model_id": model_id.strip(),
+                "fabric_type": "تريكو",
                 "calculation_type": "Knitwear - Actual Rack",
                 "order_qty": order_qty,
                 "rack_length": rack_length,
                 "rack_length_unit": "cm",
                 "fabric_width": fabric_width,
+                "fabric_width_display": f"{fabric_width:,.0f} سم",
                 "gsm": gsm,
                 "pieces_per_rack": pieces_per_rack,
                 "insurance_pct": insurance_pct,
@@ -892,6 +1129,13 @@ else:
                 "recommended_purchase": recommended_purchase,
                 "total_cost": total_cost,
                 "cost_per_garment": cost_per_garment,
+                "piece_display_value": net_per_piece * 1000.0,
+                "piece_display_unit": "جرام",
+                "total_display_unit": "كجم",
+                "insurance_display_unit": "كجم",
+                "purchase_display_unit": "كجم",
+                "price_unit": "جنيه / كجم",
+                "calculation_date": _now_str(),
             }
 
             try:
@@ -900,7 +1144,7 @@ else:
 
                 st.markdown('<div class="result-grid">', unsafe_allow_html=True)
                 st.markdown(
-                    f'<div class="metric-card primary"><div class="metric-label">الاستهلاك الصافي للقطعة</div><div class="metric-value gold">{net_per_piece:,.4f} كجم</div></div>',
+                    f'<div class="metric-card primary"><div class="metric-label">الاستهلاك الصافي للقطعة</div><div class="metric-value gold">{net_per_piece * 1000.0:,.1f} جرام</div></div>',
                     unsafe_allow_html=True,
                 )
                 st.markdown(
@@ -934,26 +1178,30 @@ else:
                     unsafe_allow_html=True,
                 )
                 st.success(f"تم حفظ العملية بنجاح — Calculation ID: {calculation_id}")
+                render_print_report(customer, result, calculation_id)
             except Exception:
                 st.error("تم إجراء الحساب، لكن تعذر حفظ العملية في قاعدة البيانات. لم نعتبر العملية محفوظة.")
 
-    with woven_tab:
+    else:
         st.markdown('<div class="model-chip"><strong>02</strong> منسوج · حساب من الراق الفعلي</div>', unsafe_allow_html=True)
         with st.form("woven_form"):
-            c1, c2, c3 = st.columns(3)
+            c1, c2 = st.columns(2)
             with c1:
                 order_qty_w = st.number_input("كمية الأمر (قطعة)", min_value=1, value=1000, step=50, key="woven_qty")
-                rack_length_m = st.number_input("طول الراق الفعلي (متر)", min_value=0.1, value=12.5, step=0.5)
+                rack_length_m = st.number_input("طول الراق الفعلي (متر)", min_value=0.1, value=12.5, step=0.5, key="woven_rack_length")
+                fabric_width_w = st.number_input("عرض القماش (سم)", min_value=1.0, value=150.0, step=5.0, key="woven_width")
             with c2:
                 pieces_per_rack_w = st.number_input("عدد القطع في الراق", min_value=1, value=8, step=1, key="woven_pieces")
                 insurance_pct_w = st.number_input("نسبة التأمين (%)", min_value=0.0, max_value=30.0, value=5.0, step=0.5, key="woven_insurance")
-            with c3:
-                unit_price_w = st.number_input("سعر المتر (جنيه)", min_value=0.0, value=90.0, step=5.0)
-                st.caption("طول الراق الفعلي هو طول الـ lay المستخدم فعليًا، وعدد القطع هو الناتج الفعلي للراق.")
+                unit_price_w = st.number_input("سعر المتر (جنيه)", min_value=0.0, value=90.0, step=5.0, key="woven_price")
+            st.caption("طول الراق الفعلي هو طول الـ lay المستخدم فعليًا، وعدد القطع هو الناتج الفعلي للراق.")
 
             calculate_woven = st.form_submit_button("حساب استهلاك المنسوج")
 
         if calculate_woven:
+            if not model_id.strip():
+                st.error("يرجى إدخال رقم الموديل / اسم الموديل أولًا.")
+                st.stop()
             net_per_piece_m = rack_length_m / pieces_per_rack_w
             net_total_m = order_qty_w * net_per_piece_m
             insurance_qty_m = net_total_m * (insurance_pct_w / 100.0)
@@ -962,11 +1210,14 @@ else:
             cost_per_garment_w = total_cost_w / order_qty_w
 
             result = {
+                "model_id": model_id.strip(),
+                "fabric_type": "منسوج",
                 "calculation_type": "Woven - Actual Rack",
                 "order_qty": order_qty_w,
                 "rack_length": rack_length_m,
                 "rack_length_unit": "m",
-                "fabric_width": "",
+                "fabric_width": fabric_width_w,
+                "fabric_width_display": f"{fabric_width_w:,.0f} سم",
                 "gsm": "",
                 "pieces_per_rack": pieces_per_rack_w,
                 "insurance_pct": insurance_pct_w,
@@ -977,6 +1228,13 @@ else:
                 "recommended_purchase": recommended_purchase_m,
                 "total_cost": total_cost_w,
                 "cost_per_garment": cost_per_garment_w,
+                "piece_display_value": net_per_piece_m,
+                "piece_display_unit": "متر",
+                "total_display_unit": "متر",
+                "insurance_display_unit": "متر",
+                "purchase_display_unit": "متر",
+                "price_unit": "جنيه / متر",
+                "calculation_date": _now_str(),
             }
 
             try:
@@ -1019,6 +1277,7 @@ else:
                     unsafe_allow_html=True,
                 )
                 st.success(f"تم حفظ العملية بنجاح — Calculation ID: {calculation_id}")
+                render_print_report(customer, result, calculation_id)
             except Exception:
                 st.error("تم إجراء الحساب، لكن تعذر حفظ العملية في قاعدة البيانات. لم نعتبر العملية محفوظة.")
 
@@ -1037,6 +1296,7 @@ st.markdown(
     <div class="footer">
         <div class="footer-brand">ABDELWAHAB GARMENTS</div>
         <div class="footer-copy">نساعد مصانع الملابس الصغيرة والمتوسطة على الانتقال من الإدارة بالإحساس إلى الإدارة بالأرقام.</div>
+        <div class="footer-copy">abdelwahabgarments.com · abdelwahab.garments@gmail.com · Facebook: Abdelwahab Garments</div>
         <div class="footer-copy">© 2026 Mohamed Abdelwahab — Consumption Model</div>
     </div>
     """,
