@@ -447,6 +447,8 @@ SCOPES = [
 ]
 SPREADSHEET_ID = "1aYYZ9g52aCR8EFe0rxQtnPEDtjx_sqiTX7uNlRP8-pU"
 
+CUSTOMERS_SHEET_NAMES = ["العملاء", "Customers"]
+VISITS_SHEET_NAMES = ["سجل_الزيارات", "Visits"]
 CUSTOMERS_HEADERS = [
     "Customer ID",
     "Registration Date",
@@ -457,7 +459,6 @@ CUSTOMERS_HEADERS = [
     "Country",
     "Governorate",
     "Factory / Brand",
-    "Client Type",
     "Job Title",
     "Newsletter",
     "Lead Source",
@@ -527,6 +528,17 @@ def get_google_sheet():
     return client.open_by_key(SPREADSHEET_ID)
 
 
+def get_existing_worksheet(names: list[str]):
+    """Return the first worksheet that exists from a list of accepted names."""
+    spreadsheet = get_google_sheet()
+    for name in names:
+        try:
+            return spreadsheet.worksheet(name)
+        except gspread.WorksheetNotFound:
+            continue
+    return None
+
+
 def get_worksheet(name: str, headers: list[str]):
     """Return a worksheet and add any missing headers without breaking existing data."""
     spreadsheet = get_google_sheet()
@@ -556,13 +568,53 @@ def get_worksheet(name: str, headers: list[str]):
 
 def find_customer_by_email(email: str):
     """Return customer dict if email exists, otherwise None."""
-    email = email.strip().lower()
-    sheet = get_worksheet("Customers", CUSTOMERS_HEADERS)
-    records = sheet.get_all_records()
+    email = normalize_email(email)
+    sheet = get_existing_worksheet(CUSTOMERS_SHEET_NAMES)
+    if sheet is None:
+        raise RuntimeError("لم يتم العثور على ورقة العملاء.")
 
-    for row in records:
-        row_email = str(row.get("Email", "")).strip().lower()
-        if row_email == email:
+    rows = sheet.get_all_values()
+    if not rows:
+        return None
+
+    headers = [str(h).strip() for h in rows[0]]
+    email_index = None
+    for idx, header in enumerate(headers):
+        if header.lower() == "email":
+            email_index = idx
+            break
+
+    # Backward compatibility with the old sheet if headers are Arabic.
+    if email_index is None:
+        for idx, header in enumerate(headers):
+            if "mail" in header.lower() or "email" in header.lower() or "بريد" in header:
+                email_index = idx
+                break
+
+    if email_index is None:
+        raise RuntimeError("عمود البريد الإلكتروني غير موجود في ورقة العملاء.")
+
+    for values in rows[1:]:
+        if email_index < len(values) and normalize_email(values[email_index]) == email:
+            row = {}
+            for idx, header in enumerate(headers):
+                row[header] = values[idx] if idx < len(values) else ""
+            # Normalize the keys expected by the application.
+            aliases = {
+                "الاسم بالكامل": "Full Name",
+                "الاسم": "Full Name",
+                "البريد الإلكتروني": "Email",
+                "رقم الواتساب": "WhatsApp",
+                "رقم WhatsApp": "WhatsApp",
+                "الدولة": "Country",
+                "المحافظة / المنطقة": "Governorate",
+                "المحافظة": "Governorate",
+                "اسم المصنع أو البراند": "Factory / Brand",
+                "المسمى الوظيفي": "Job Title",
+            }
+            for old_key, new_key in aliases.items():
+                if old_key in row and new_key not in row:
+                    row[new_key] = row[old_key]
             return row
     return None
 
@@ -585,7 +637,6 @@ def create_customer(customer_data: dict) -> dict:
         "Country": customer_data["country"],
         "Governorate": customer_data["governorate"],
         "Factory / Brand": customer_data["factory_brand"],
-        "Client Type": customer_data["client_type"],
         "Job Title": customer_data["job_title"],
         "Newsletter": "نعم" if customer_data["newsletter"] else "لا",
         "Lead Source": "Consumption Model",
@@ -594,7 +645,14 @@ def create_customer(customer_data: dict) -> dict:
         "Status": "Active",
     }
 
-    sheet = get_worksheet("Customers", CUSTOMERS_HEADERS)
+    sheet = get_existing_worksheet(CUSTOMERS_SHEET_NAMES)
+    if sheet is None:
+        spreadsheet = get_google_sheet()
+        sheet = spreadsheet.add_worksheet(title="العملاء", rows=1000, cols=max(len(CUSTOMERS_HEADERS), 10))
+        sheet.update("A1", [CUSTOMERS_HEADERS], value_input_option="USER_ENTERED")
+    else:
+        # Keep the existing sheet/data and append any missing V2/V3 fields.
+        sheet = get_worksheet("العملاء" if sheet.title == "العملاء" else "Customers", CUSTOMERS_HEADERS)
     sheet_headers = sheet.row_values(1)
     sheet.append_row([customer.get(h, "") for h in sheet_headers], value_input_option="USER_ENTERED")
     return customer
@@ -602,7 +660,13 @@ def create_customer(customer_data: dict) -> dict:
 
 def record_visit(customer: dict, event_name: str = "Login") -> None:
     now = _now_str()
-    visits = get_worksheet("Visits", VISITS_HEADERS)
+    visits = get_existing_worksheet(VISITS_SHEET_NAMES)
+    if visits is None:
+        spreadsheet = get_google_sheet()
+        visits = spreadsheet.add_worksheet(title="سجل_الزيارات", rows=2000, cols=len(VISITS_HEADERS))
+        visits.update("A1", [VISITS_HEADERS], value_input_option="USER_ENTERED")
+    else:
+        visits = get_worksheet("سجل_الزيارات" if visits.title == "سجل_الزيارات" else "Visits", VISITS_HEADERS)
     visits.append_row(
         [
             f"VIS-{uuid.uuid4().hex[:10].upper()}",
@@ -617,7 +681,10 @@ def record_visit(customer: dict, event_name: str = "Login") -> None:
 
 def update_customer_activity(customer: dict, calculation_id: str | None = None) -> None:
     """Update last visit and calculation counters by Customer ID."""
-    sheet = get_worksheet("Customers", CUSTOMERS_HEADERS)
+    sheet = get_existing_worksheet(CUSTOMERS_SHEET_NAMES)
+    if sheet is None:
+        return
+    sheet = get_worksheet("العملاء" if sheet.title == "العملاء" else "Customers", CUSTOMERS_HEADERS)
     rows = sheet.get_all_values()
     if not rows:
         return
@@ -795,7 +862,7 @@ td {{ width:30%; }}
 <table>
 <tr><th>رقم / اسم الموديل</th><td>{esc(result['model_id'])}</td><th>نوع القماش</th><td>{esc(result['fabric_type'])}</td></tr>
 <tr><th>اسم الخامة</th><td>{esc(fabric_name)}</td><th>العميل</th><td>{esc(customer.get('Factory / Brand',''))}</td></tr>
-<tr><th>المستخدم</th><td>{esc(customer.get('Full Name',''))}</td><th>صفة العميل</th><td>{esc(customer.get('Client Type',''))}</td></tr>
+<tr><th>المستخدم</th><td>{esc(customer.get('Full Name',''))}</td><th>المسمى الوظيفي</th><td>{esc(customer.get('Job Title',''))}</td></tr>
 </table>
 
 <h2>بيانات التشغيل</h2>
@@ -931,7 +998,9 @@ if not st.session_state["authenticated"]:
                 st.session_state["login_error"] = str(exc)
 
     if st.session_state["login_error"]:
-        st.error("تعذر الوصول إلى قاعدة البيانات حاليًا. راجع إعدادات Google Sheets ثم حاول مرة أخرى.")
+        st.error("تعذر الوصول إلى بيانات العملاء حاليًا. تأكد أن حساب الخدمة لديه صلاحية الدخول إلى ملف Google Sheets وأن ورقة العملاء موجودة.")
+        with st.expander("تفاصيل تقنية", expanded=False):
+            st.code(st.session_state["login_error"])
 
     if st.session_state["registration_email"]:
         st.markdown("---")
@@ -948,28 +1017,18 @@ if not st.session_state["authenticated"]:
                 governorate = st.text_input("المحافظة / المنطقة *")
             with c2:
                 factory_brand = st.text_input("اسم المصنع أو البراند *")
-                client_type = st.selectbox(
-                    "صفة العميل *",
-                    [
-                        "اختر الصفة...",
-                        "صاحب مصنع",
-                        "صاحب براند",
-                        "موظف / مدير داخل مصنع أو براند",
-                        "استشاري / مقدم خدمة",
-                        "أخرى",
-                    ],
-                )
                 job_title = st.selectbox(
-                    "الوظيفة / المسمى الوظيفي *",
+                    "المسمى الوظيفي *",
                     [
                         "اختر المسمى الوظيفي...",
+                        "صاحب مصنع",
+                        "صاحب براند",
+                        "مدير مصنع",
                         "مدير إنتاج",
-                        "مدير تخطيط ومتابعة",
-                        "مدير جودة",
-                        "مهندس تخطيط ومتابعة",
-                        "مصمم / باترونيست",
+                        "مدير تخطيط",
+                        "مسؤول متابعة",
+                        "مصمم أزياء",
                         "مسؤول مشتريات",
-                        "مالك / مؤسس",
                         "أخرى",
                     ],
                 )
@@ -983,8 +1042,6 @@ if not st.session_state["authenticated"]:
         if create_btn:
             if not full_name.strip() or not phone.strip() or not country.strip() or not governorate.strip() or not factory_brand.strip():
                 st.error("يرجى استكمال جميع الحقول المطلوبة.")
-            elif client_type == "اختر الصفة...":
-                st.error("يرجى اختيار صفة العميل.")
             elif job_title == "اختر المسمى الوظيفي...":
                 st.error("يرجى اختيار المسمى الوظيفي.")
             elif not valid_phone(phone):
@@ -997,7 +1054,6 @@ if not st.session_state["authenticated"]:
                     "country": country.strip(),
                     "governorate": governorate.strip(),
                     "factory_brand": factory_brand.strip(),
-                    "client_type": client_type,
                     "job_title": job_title,
                     "newsletter": newsletter,
                 }
@@ -1027,7 +1083,7 @@ else:
             f"""
             <div class="welcome-card">
                 <div class="welcome-title">أهلًا بك، {customer.get('Full Name', 'مستخدم')}</div>
-                <div class="welcome-meta">{customer.get('Factory / Brand', '')} · {customer.get('Client Type', '')} · {customer.get('Job Title', '')} · {customer.get('Country', '')} / {customer.get('Governorate', '')}</div>
+                <div class="welcome-meta">{customer.get('Factory / Brand', '')} · {customer.get('Job Title', '')} · {customer.get('Country', '')} / {customer.get('Governorate', '')}</div>
             </div>
             """,
             unsafe_allow_html=True,
